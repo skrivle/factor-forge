@@ -8,28 +8,28 @@ export async function createUser(name: string, pin: string, role: 'parent' | 'ch
     VALUES (${name}, ${pin}, ${role})
     RETURNING *
   `;
-  return result.rows[0] as User;
+  return result[0] as User;
 }
 
 export async function getUserByName(name: string) {
   const result = await sql`
     SELECT * FROM users WHERE name = ${name}
   `;
-  return result.rows[0] as User | undefined;
+  return result[0] as User | undefined;
 }
 
 export async function getAllUsers() {
   const result = await sql`
     SELECT id, name, role, created_at FROM users ORDER BY created_at DESC
   `;
-  return result.rows as Omit<User, 'pin'>[];
+  return result as Omit<User, 'pin'>[];
 }
 
 export async function verifyUserPin(name: string, pin: string) {
   const result = await sql`
     SELECT * FROM users WHERE name = ${name} AND pin = ${pin}
   `;
-  return result.rows[0] as User | undefined;
+  return result[0] as User | undefined;
 }
 
 // Session queries
@@ -44,7 +44,7 @@ export async function createSession(
     VALUES (${userId}, ${score}, ${accuracy}, ${difficultyLevel})
     RETURNING *
   `;
-  return result.rows[0] as GameSession;
+  return result[0] as GameSession;
 }
 
 export async function getUserSessions(userId: string, limit: number = 10) {
@@ -54,7 +54,7 @@ export async function getUserSessions(userId: string, limit: number = 10) {
     ORDER BY completed_at DESC
     LIMIT ${limit}
   `;
-  return result.rows as GameSession[];
+  return result as GameSession[];
 }
 
 // Stats queries
@@ -62,7 +62,7 @@ export async function getUserStats(userId: string) {
   const result = await sql`
     SELECT * FROM user_stats WHERE user_id = ${userId}
   `;
-  return result.rows[0] as UserStats | undefined;
+  return result[0] as UserStats | undefined;
 }
 
 export async function initializeUserStats(userId: string) {
@@ -72,7 +72,7 @@ export async function initializeUserStats(userId: string) {
     ON CONFLICT (user_id) DO NOTHING
     RETURNING *
   `;
-  return result.rows[0] as UserStats;
+  return result[0] as UserStats;
 }
 
 export async function updateStreak(userId: string, currentStreak: number, lastPlayedDate: Date) {
@@ -115,7 +115,7 @@ export async function getLeaderboard(limit: number = 10) {
     ORDER BY s.best_score DESC NULLS LAST, s.current_streak DESC NULLS LAST
     LIMIT ${limit}
   `;
-  return result.rows;
+  return result;
 }
 
 export async function getWeeklyLeaderboard() {
@@ -134,5 +134,5 @@ export async function getWeeklyLeaderboard() {
     ORDER BY weekly_score DESC NULLS LAST
     LIMIT 10
   `;
-  return result.rows;
+  return result;
 }
