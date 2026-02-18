@@ -1,13 +1,16 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { redirect } from 'next/navigation';
+import { auth } from '@/lib/auth';
+import { getLeaderboard, getWeeklyLeaderboard, getUserActivities } from '@/lib/db/queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
+import TabSwitcher from '@/components/TabSwitcher';
+import LeaderboardEntryWrapper from '@/components/LeaderboardEntryWrapper';
+import NavigationButtons from '@/components/NavigationButtons';
 import MiniStreakChart from '@/components/MiniStreakChart';
+
+interface PageProps {
+  searchParams: Promise<{ type?: string }>;
+}
 
 interface LeaderboardEntry {
   id: string;
@@ -21,55 +24,31 @@ interface LeaderboardEntry {
   avg_accuracy?: number;
 }
 
-interface ActivityDay {
-  date: string;
-  game_count: number;
+function getMedalEmoji(rank: number) {
+  if (rank === 1) return '🥇';
+  if (rank === 2) return '🥈';
+  if (rank === 3) return '🥉';
+  return `#${rank}`;
 }
 
-export default function LeaderboardPage() {
-  const { data: session } = useSession();
-  const router = useRouter();
-  const [leaderboardType, setLeaderboardType] = useState<'all-time' | 'weekly'>('all-time');
-  const [data, setData] = useState<LeaderboardEntry[]>([]);
-  const [activities, setActivities] = useState<Record<string, ActivityDay[]>>({});
-  const [loading, setLoading] = useState(true);
+export default async function LeaderboardPage({ searchParams }: PageProps) {
+  const session = await auth();
+  
+  if (!session?.user) {
+    redirect('/auth/signin');
+  }
 
-  useEffect(() => {
-    if (!session?.user) {
-      router.push('/auth/signin');
-      return;
-    }
+  const params = await searchParams;
+  const leaderboardType = (params.type === 'weekly' ? 'weekly' : 'all-time') as 'all-time' | 'weekly';
 
-    fetchLeaderboard();
-  }, [leaderboardType, session, router]);
+  // Fetch leaderboard data
+  const data = (leaderboardType === 'weekly' 
+    ? await getWeeklyLeaderboard()
+    : await getLeaderboard(10)) as LeaderboardEntry[];
 
-  const fetchLeaderboard = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/leaderboard?type=${leaderboardType}`);
-      const result = await response.json();
-      setData(result);
-
-      // Fetch activities for all users in the leaderboard
-      if (result.length > 0) {
-        const userIds = result.map((entry: LeaderboardEntry) => entry.id).join(',');
-        const activityResponse = await fetch(`/api/activity/users?userIds=${userIds}&days=14`);
-        const activityData = await activityResponse.json();
-        setActivities(activityData.activities || {});
-      }
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getMedalEmoji = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
-  };
+  // Fetch activities for all users in the leaderboard
+  const userIds = data.map((entry) => entry.id);
+  const activities = await getUserActivities(userIds, 14);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-2 sm:p-4">
@@ -81,50 +60,21 @@ export default function LeaderboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 sm:px-6">
-            <div className="flex gap-2 mb-4 sm:mb-6">
-              <Button
-                onClick={() => setLeaderboardType('all-time')}
-                className={`flex-1 text-sm sm:text-base ${
-                  leaderboardType === 'all-time'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-              >
-                Alle Tijden
-              </Button>
-              <Button
-                onClick={() => setLeaderboardType('weekly')}
-                className={`flex-1 text-sm sm:text-base ${
-                  leaderboardType === 'weekly'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600'
-                    : 'bg-gray-700 hover:bg-gray-600'
-                }`}
-              >
-                Deze Week
-              </Button>
-            </div>
+            <TabSwitcher currentType={leaderboardType} />
 
-            {loading ? (
-              <div className="text-center text-gray-400 py-8 sm:py-12">Laden...</div>
-            ) : data.length === 0 ? (
+            {data.length === 0 ? (
               <div className="text-center text-gray-400 py-8 sm:py-12">
                 Nog geen data. Wees de eerste om te spelen! 🎮
               </div>
             ) : (
               <div className="space-y-2 sm:space-y-3">
                 {data.map((entry, index) => {
-                  const isCurrentUser = entry.name === session?.user?.name;
+                  const isCurrentUser = entry.name === session.user.name;
                   return (
-                    <motion.div
+                    <LeaderboardEntryWrapper 
                       key={entry.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className={`p-3 sm:p-4 rounded-lg border-2 ${
-                        isCurrentUser
-                          ? 'bg-purple-500/20 border-purple-500'
-                          : 'bg-gray-800/50 border-gray-700'
-                      }`}
+                      index={index}
+                      isCurrentUser={isCurrentUser}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         {/* Left side: Medal and Name */}
@@ -210,38 +160,18 @@ export default function LeaderboardPage() {
                           )}
                         </div>
                       </div>
-                    </motion.div>
+                    </LeaderboardEntryWrapper>
                   );
                 })}
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mt-6 sm:mt-8">
-              <Button
-                onClick={() => router.push('/game')}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-base sm:text-lg h-12 sm:h-14"
-              >
-                Speel Nu 🎮
-              </Button>
-              <Button
-                onClick={() => router.push('/')}
-                variant="outline"
-                className="flex-1 border-purple-500/50 text-white hover:bg-purple-500/20 font-bold text-base sm:text-lg h-12 sm:h-14"
-              >
-                Home
-              </Button>
-            </div>
+            <NavigationButtons />
           </CardContent>
         </Card>
 
         {/* Activity Heatmap for current user */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <ActivityHeatmap weeks={20} />
-        </motion.div>
+        <ActivityHeatmap weeks={20} />
       </div>
     </div>
   );

@@ -136,3 +136,34 @@ export async function getWeeklyLeaderboard() {
   `;
   return result;
 }
+
+// Activity queries
+export async function getUserActivities(userIds: string[], days: number = 14) {
+  if (userIds.length === 0) return {};
+
+  const result = await sql`
+    SELECT 
+      user_id,
+      DATE(completed_at) as date,
+      COUNT(*) as game_count
+    FROM sessions
+    WHERE user_id = ANY(${userIds}::uuid[])
+      AND completed_at >= NOW() - INTERVAL '1 day' * ${days}
+    GROUP BY user_id, DATE(completed_at)
+    ORDER BY user_id, date ASC
+  `;
+
+  // Group by user_id and convert dates to strings for serialization
+  const activities: Record<string, any[]> = {};
+  result.forEach((row: any) => {
+    if (!activities[row.user_id]) {
+      activities[row.user_id] = [];
+    }
+    activities[row.user_id].push({
+      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
+      game_count: Number(row.game_count)
+    });
+  });
+
+  return activities;
+}

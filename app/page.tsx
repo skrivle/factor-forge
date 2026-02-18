@@ -143,7 +143,6 @@ export default function Home() {
 
         <div className="text-center text-xs text-gray-500 mt-8">
           <p>Factor Forge - Tafeloefening voor het Gezin</p>
-          <p className="mt-1">Gemaakt met Next.js, TypeScript, en Tailwind CSS</p>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useState } from 'react';
 
 interface ActivityDay {
-  date: string;
+  date: string | Date;
   game_count: number;
 }
 
@@ -14,19 +14,28 @@ interface MiniStreakChartProps {
 }
 
 export default function MiniStreakChart({ activity, days = 14 }: MiniStreakChartProps) {
-  const [hoveredDay, setHoveredDay] = useState<ActivityDay | null>(null);
+  const [hoveredDay, setHoveredDay] = useState<{ date: string; game_count: number } | null>(null);
 
   // Generate data for the last N days
   const generateDays = () => {
-    const result: (ActivityDay | null)[] = [];
+    const result: ({ date: string; game_count: number } | null)[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     // Create activity map for quick lookup
-    const activityMap = new Map<string, ActivityDay>();
+    const activityMap = new Map<string, { date: string; game_count: number }>();
     activity.forEach(day => {
-      const normalizedDate = day.date.split('T')[0];
-      activityMap.set(normalizedDate, { ...day, date: normalizedDate });
+      // Handle both Date objects and strings
+      let dateStr: string;
+      if (day.date instanceof Date) {
+        dateStr = day.date.toISOString().split('T')[0];
+      } else if (typeof day.date === 'string') {
+        dateStr = day.date.split('T')[0];
+      } else {
+        // Fallback: convert to string
+        dateStr = String(day.date).split('T')[0];
+      }
+      activityMap.set(dateStr, { date: dateStr, game_count: day.game_count });
     });
 
     // Generate last N days
