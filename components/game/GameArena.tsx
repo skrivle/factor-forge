@@ -195,17 +195,40 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
       } else {
         playIncorrectSound();
         setShowFeedback('incorrect');
-        setGameState((prev) => ({
-          ...prev,
-          combo: 0,
-        }));
 
-        // Show correct answer for longer before clearing
+        // Show correct answer before moving to next question
         setTimeout(() => {
           setUserInput('');
           setShowFeedback(null);
-          setIsProcessingAnswer(false); // Allow next answer
-        }, 1500); // Increased from 500ms to 1500ms to show correct answer longer
+          setIsProcessingAnswer(false);
+          
+          setGameState((prev) => {
+            const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
+            
+            if (isLastQuestion) {
+              setIsGameOver(true);
+              return {
+                ...prev,
+                incorrectAnswers: prev.incorrectAnswers + 1,
+                combo: 0,
+              };
+            }
+
+            const nextTime = getTimeForQuestion(
+              prev.currentQuestionIndex + 1,
+              config.timePerQuestion,
+              config.decreaseTime
+            );
+
+            return {
+              ...prev,
+              currentQuestionIndex: prev.currentQuestionIndex + 1,
+              incorrectAnswers: prev.incorrectAnswers + 1,
+              combo: 0,
+              timeLeft: nextTime,
+            };
+          });
+        }, 1500);
       }
     },
     [currentQuestion, gameState.combo, config, isProcessingAnswer]
@@ -265,6 +288,49 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
     setUserInput('');
   };
 
+  const handleSkip = () => {
+    if (showFeedback || isProcessingAnswer) return;
+    
+    // Treat skip as an incorrect answer - show the correct answer
+    playIncorrectSound();
+    setShowFeedback('incorrect');
+    setIsProcessingAnswer(true);
+    
+    // Show correct answer for 1.5 seconds before moving to next question
+    setTimeout(() => {
+      setUserInput('');
+      setShowFeedback(null);
+      setIsProcessingAnswer(false);
+      
+      setGameState((prev) => {
+        const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
+        
+        if (isLastQuestion) {
+          setIsGameOver(true);
+          return {
+            ...prev,
+            incorrectAnswers: prev.incorrectAnswers + 1,
+            combo: 0,
+          };
+        }
+
+        const nextTime = getTimeForQuestion(
+          prev.currentQuestionIndex + 1,
+          config.timePerQuestion,
+          config.decreaseTime
+        );
+
+        return {
+          ...prev,
+          currentQuestionIndex: prev.currentQuestionIndex + 1,
+          incorrectAnswers: prev.incorrectAnswers + 1,
+          combo: 0,
+          timeLeft: nextTime,
+        };
+      });
+    }, 1500);
+  };
+
   const progress = ((gameState.currentQuestionIndex + 1) / gameState.questions.length) * 100;
 
   if (!currentQuestion || isGameOver) {
@@ -272,11 +338,11 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-black overflow-hidden">
-      <div className="h-full w-full flex items-center justify-center p-4 pb-safe">
-        <div className="w-full max-w-2xl flex flex-col h-full max-h-screen overflow-y-auto">
+    <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-black">
+      <div className="h-full w-full flex flex-col p-4 pt-safe pb-safe">
+        <div className="w-full max-w-2xl mx-auto flex flex-col gap-3 h-full justify-between">
           {/* Header Stats */}
-          <div className="flex justify-between items-center mb-4 text-white flex-shrink-0">
+          <div className="flex justify-between items-center text-white flex-shrink-0">
             <div className="flex gap-4">
               <div>
                 <div className="text-xs text-gray-400">Score</div>
@@ -321,24 +387,24 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full bg-gray-800 h-2 rounded-full mb-4 overflow-hidden flex-shrink-0">
-          <motion.div
-            className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.3 }}
-          />
-        </div>
+          <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden flex-shrink-0">
+            <motion.div
+              className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
 
-        {/* Question Card */}
-        <Card className={`border-2 bg-black/80 backdrop-blur-lg mb-4 flex-shrink-0 transition-colors duration-200 ${
+          {/* Question Card */}
+          <Card className={`border-2 bg-black/80 backdrop-blur-lg flex-shrink-0 transition-colors duration-200 ${
           showFeedback === 'incorrect' ? 'border-red-500 bg-red-500/10' : 
           showFeedback === 'correct' ? 'border-green-500 bg-green-500/10' : 
           'border-purple-500/30'
         }`}>
-          <CardContent className="p-6 sm:p-8">
+          <CardContent className="p-4 sm:p-8">
             <div className="text-center">
-              <div className="text-xs sm:text-sm text-gray-400 mb-2">
+              <div className="text-xs sm:text-sm text-gray-400 mb-1 sm:mb-2">
                 Vraag {gameState.currentQuestionIndex + 1} van {gameState.questions.length}
               </div>
               <AnimatePresence mode="wait">
@@ -348,16 +414,16 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="text-5xl sm:text-6xl font-bold text-white mb-4 sm:mb-6"
+                  className="text-4xl sm:text-6xl font-bold text-white mb-2 sm:mb-6"
                 >
                   {currentQuestion.num1} × {currentQuestion.num2}
                 </motion.div>
               </AnimatePresence>
               
-              <div className="text-3xl sm:text-4xl text-white mb-2">=</div>
+              <div className="text-2xl sm:text-4xl text-white mb-1 sm:mb-2">=</div>
               
               <motion.div
-                className={`text-4xl sm:text-5xl font-bold min-h-[60px] flex items-center justify-center ${
+                className={`text-3xl sm:text-5xl font-bold min-h-[50px] sm:min-h-[60px] flex items-center justify-center ${
                   showFeedback === 'incorrect' ? 'animate-shake' : ''
                 }`}
                 animate={
@@ -398,7 +464,7 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="mt-4 text-2xl sm:text-3xl text-green-400 font-bold"
+                  className="mt-2 sm:mt-4 text-xl sm:text-3xl text-green-400 font-bold"
                 >
                   Correct antwoord: {currentQuestion.answer}
                 </motion.div>
@@ -407,16 +473,17 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           </CardContent>
         </Card>
 
-        {/* Numpad */}
-        <div className="flex-shrink-0">
-          <Numpad
-            onNumberClick={handleNumberClick}
-            onBackspace={handleBackspace}
-            onClear={handleClear}
-          />
+          {/* Numpad */}
+          <div className="flex-shrink-0 w-full">
+            <Numpad
+              onNumberClick={handleNumberClick}
+              onBackspace={handleBackspace}
+              onClear={handleClear}
+              onSkip={handleSkip}
+            />
+          </div>
         </div>
       </div>
     </div>
-  </div>
   );
 }
