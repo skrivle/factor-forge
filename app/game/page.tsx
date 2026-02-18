@@ -60,8 +60,13 @@ export default function GamePage() {
     setGameStarted(true);
   };
 
+  const handleExit = () => {
+    setGameStarted(false);
+    setGameStats(null);
+  };
+
   if (gameStarted) {
-    return <GameArena config={config} onGameEnd={handleGameEnd} />;
+    return <GameArena config={config} onGameEnd={handleGameEnd} onExit={handleExit} />;
   }
 
   return (
@@ -143,7 +148,7 @@ export default function GamePage() {
                 <h3 className="text-xl font-bold text-white mb-4">Spelregels</h3>
                 <ul className="space-y-2 text-gray-300">
                   <li>✅ {config.questionCount} vermenigvuldigingsvragen</li>
-                  <li>🔢 Tafels: 1, 2, 3, 4, 5, en 8 enkel</li>
+                  <li>🔢 Tafels: 1, 2, 3, 4, 5, 8 en 10</li>
                   <li>⏱️ {config.timePerQuestion} seconden per vraag{config.decreaseTime && ' (afnemend!)'}</li>
                   <li>🎯 Typ je antwoord - je hoeft niet op Enter te drukken!</li>
                   <li>🔥 Maak combo's voor bonuspunten!</li>

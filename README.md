@@ -126,15 +126,15 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with a user name
 
 ## Game Modes
 
-**Custom Tables**: All modes now use multiplication tables 1, 2, 3, 4, 5, and 8 only.
+**Custom Tables**: All modes now use multiplication tables 1, 2, 3, 4, 5, 8, and 10.
 
 ### Child Mode
-- Tables: 1, 2, 3, 4, 5, 8
+- Tables: 1, 2, 3, 4, 5, 8, 10
 - Time: 60 seconds total (fixed)
 - Questions: 20
 
 ### Parent Mode
-- Tables: 1, 2, 3, 4, 5, 8
+- Tables: 1, 2, 3, 4, 5, 8, 10
 - Time: Starts at 5 seconds per question, decreases by 0.2s each question (minimum 2s)
 - Questions: 20
 

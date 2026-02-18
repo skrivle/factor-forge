@@ -12,7 +12,7 @@ import {
   type GameState,
   type Question,
 } from '@/lib/game/engine';
-import { playCorrectSound, playIncorrectSound, playComboSound } from '@/lib/game/sounds';
+import { playCorrectSound, playIncorrectSound, playComboSound, setSoundEnabled, isSoundEnabled } from '@/lib/game/sounds';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -24,9 +24,10 @@ interface GameArenaProps {
     correctAnswers: number;
     incorrectAnswers: number;
   }) => void;
+  onExit?: () => void;
 }
 
-export default function GameArena({ config, onGameEnd }: GameArenaProps) {
+export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps) {
   const [gameState, setGameState] = useState<GameState>(() => {
     const questions = generateQuestions(config);
     return {
@@ -45,12 +46,26 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
   const [userInput, setUserInput] = useState('');
   const [showFeedback, setShowFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [isGameOver, setIsGameOver] = useState(false);
+  const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(false);
 
   const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
 
+  // Toggle sound
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabledState(newState);
+    setSoundEnabled(newState);
+  };
+
+  // Clear input when question changes
+  useEffect(() => {
+    setUserInput('');
+  }, [gameState.currentQuestionIndex]);
+
   // Timer logic
   useEffect(() => {
-    if (isGameOver) return;
+    if (isGameOver || isProcessingAnswer) return;
 
     const timer = setInterval(() => {
       setGameState((prev) => {
@@ -59,27 +74,46 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
         if (newTimeLeft <= 0) {
           // Time's up for this question
           playIncorrectSound();
-          setUserInput(''); // Clear input on timeout
+          setShowFeedback('incorrect');
+          setIsProcessingAnswer(true);
           
-          const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
+          // Show correct answer for 1.5 seconds before moving to next question
+          setTimeout(() => {
+            setUserInput('');
+            setShowFeedback(null);
+            setIsProcessingAnswer(false);
+            
+            setGameState((prev) => {
+              const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
+              
+              if (isLastQuestion) {
+                setIsGameOver(true);
+                return {
+                  ...prev,
+                  incorrectAnswers: prev.incorrectAnswers + 1,
+                  combo: 0,
+                };
+              }
+
+              const nextTime = getTimeForQuestion(
+                prev.currentQuestionIndex + 1,
+                config.timePerQuestion,
+                config.decreaseTime
+              );
+
+              return {
+                ...prev,
+                currentQuestionIndex: prev.currentQuestionIndex + 1,
+                incorrectAnswers: prev.incorrectAnswers + 1,
+                combo: 0,
+                timeLeft: nextTime,
+              };
+            });
+          }, 1500);
           
-          if (isLastQuestion) {
-            setIsGameOver(true);
-            return prev;
-          }
-
-          const nextTime = getTimeForQuestion(
-            prev.currentQuestionIndex + 1,
-            config.timePerQuestion,
-            config.decreaseTime
-          );
-
           return {
             ...prev,
-            currentQuestionIndex: prev.currentQuestionIndex + 1,
-            incorrectAnswers: prev.incorrectAnswers + 1,
-            combo: 0,
-            timeLeft: nextTime,
+            timeLeft: 0,
           };
         }
 
@@ -88,7 +122,7 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
     }, 100);
 
     return () => clearInterval(timer);
-  }, [isGameOver, config]);
+  }, [isGameOver, config, isProcessingAnswer]);
 
   // Handle game end
   useEffect(() => {
@@ -110,6 +144,10 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
 
   const handleAnswer = useCallback(
     (answer: number) => {
+      // Prevent double-processing
+      if (isProcessingAnswer) return;
+      setIsProcessingAnswer(true);
+
       const isCorrect = answer === currentQuestion.answer;
 
       if (isCorrect) {
@@ -123,8 +161,9 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
 
         // Show the correct answer for a moment before moving on
         setTimeout(() => {
-          setUserInput(''); // Clear input
           setShowFeedback(null); // Remove feedback
+          setIsProcessingAnswer(false); // Allow next answer
+          setUserInput(''); // Clear input RIGHT BEFORE moving to next question
           
           setGameState((prev) => {
             const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
@@ -161,18 +200,22 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
           combo: 0,
         }));
 
-        // Clear input and remove feedback after shake animation
+        // Show correct answer for longer before clearing
         setTimeout(() => {
           setUserInput('');
           setShowFeedback(null);
-        }, 500);
+          setIsProcessingAnswer(false); // Allow next answer
+        }, 1500); // Increased from 500ms to 1500ms to show correct answer longer
       }
     },
-    [currentQuestion, gameState.combo, config]
+    [currentQuestion, gameState.combo, config, isProcessingAnswer]
   );
 
   // Auto-submit on correct answer OR show error on wrong answer
   useEffect(() => {
+    // Don't check if already showing feedback or processing (prevents double-triggering)
+    if (showFeedback || isProcessingAnswer) return;
+    
     if (userInput && currentQuestion) {
       const inputNum = parseInt(userInput, 10);
       const correctAnswer = currentQuestion.answer;
@@ -187,12 +230,12 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
         handleAnswer(inputNum);
       }
     }
-  }, [userInput, currentQuestion, handleAnswer]);
+  }, [userInput, currentQuestion, showFeedback, isProcessingAnswer, handleAnswer]);
 
   // Keyboard listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isGameOver) return;
+      if (isGameOver || showFeedback || isProcessingAnswer) return; // Don't accept input during feedback or processing
 
       if (e.key >= '0' && e.key <= '9') {
         setUserInput((prev) => prev + e.key);
@@ -205,17 +248,20 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isGameOver]);
+  }, [isGameOver, showFeedback, isProcessingAnswer]);
 
   const handleNumberClick = (num: string) => {
+    if (showFeedback || isProcessingAnswer) return; // Don't accept numpad input during feedback or processing
     setUserInput((prev) => prev + num);
   };
 
   const handleBackspace = () => {
+    if (showFeedback || isProcessingAnswer) return;
     setUserInput((prev) => prev.slice(0, -1));
   };
 
   const handleClear = () => {
+    if (showFeedback || isProcessingAnswer) return;
     setUserInput('');
   };
 
@@ -226,33 +272,56 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 flex items-center justify-center">
-      <div className="w-full max-w-2xl">
-        {/* Header Stats */}
-        <div className="flex justify-between items-center mb-6 text-white">
-          <div className="flex gap-6">
-            <div>
-              <div className="text-sm text-gray-400">Score</div>
-              <div className="text-2xl font-bold text-green-400">{calculateScore(gameState.correctAnswers, gameState.combo, 0)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-400">Combo</div>
-              <div className="text-2xl font-bold text-orange-400 flex items-center gap-1">
-                {gameState.combo}
-                {gameState.combo >= 5 && <span className="animate-fire">🔥</span>}
+    <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-black overflow-hidden">
+      <div className="h-full w-full flex items-center justify-center p-4 pb-safe">
+        <div className="w-full max-w-2xl flex flex-col h-full max-h-screen overflow-y-auto">
+          {/* Header Stats */}
+          <div className="flex justify-between items-center mb-4 text-white flex-shrink-0">
+            <div className="flex gap-4">
+              <div>
+                <div className="text-xs text-gray-400">Score</div>
+                <div className="text-xl font-bold text-green-400">{calculateScore(gameState.correctAnswers, gameState.combo, 0)}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400">Combo</div>
+                <div className="text-xl font-bold text-orange-400 flex items-center gap-1">
+                  {gameState.combo}
+                  {gameState.combo >= 5 && <span className="animate-fire">🔥</span>}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400">Tijd</div>
-            <div className={`text-2xl font-bold ${gameState.timeLeft < 3 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`}>
-              {gameState.timeLeft.toFixed(1)}s
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-xs text-gray-400">Tijd</div>
+                <div className={`text-xl font-bold ${gameState.timeLeft < 3 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`}>
+                  {gameState.timeLeft.toFixed(1)}s
+                </div>
+              </div>
+              <Button
+                onClick={toggleSound}
+                variant="ghost"
+                size="sm"
+                className="text-gray-400 hover:text-white hover:bg-purple-500/20"
+                title={soundEnabled ? 'Geluid uitschakelen' : 'Geluid inschakelen'}
+              >
+                {soundEnabled ? '🔊' : '🔇'}
+              </Button>
+              {onExit && (
+                <Button
+                  onClick={onExit}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-400 hover:text-white hover:bg-red-500/20"
+                  title="Spel verlaten"
+                >
+                  ✕
+                </Button>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="w-full bg-gray-800 h-2 rounded-full mb-8 overflow-hidden">
+          {/* Progress Bar */}
+          <div className="w-full bg-gray-800 h-2 rounded-full mb-4 overflow-hidden flex-shrink-0">
           <motion.div
             className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
             initial={{ width: 0 }}
@@ -262,14 +331,14 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
         </div>
 
         {/* Question Card */}
-        <Card className={`border-2 bg-black/80 backdrop-blur-lg mb-6 transition-colors duration-200 ${
+        <Card className={`border-2 bg-black/80 backdrop-blur-lg mb-4 flex-shrink-0 transition-colors duration-200 ${
           showFeedback === 'incorrect' ? 'border-red-500 bg-red-500/10' : 
           showFeedback === 'correct' ? 'border-green-500 bg-green-500/10' : 
           'border-purple-500/30'
         }`}>
-          <CardContent className="p-8">
-            <div className="text-center mb-6">
-              <div className="text-sm text-gray-400 mb-2">
+          <CardContent className="p-6 sm:p-8">
+            <div className="text-center">
+              <div className="text-xs sm:text-sm text-gray-400 mb-2">
                 Vraag {gameState.currentQuestionIndex + 1} van {gameState.questions.length}
               </div>
               <AnimatePresence mode="wait">
@@ -279,16 +348,16 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0.8, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="text-6xl font-bold text-white mb-6"
+                  className="text-5xl sm:text-6xl font-bold text-white mb-4 sm:mb-6"
                 >
                   {currentQuestion.num1} × {currentQuestion.num2}
                 </motion.div>
               </AnimatePresence>
               
-              <div className="text-4xl text-white mb-2">=</div>
+              <div className="text-3xl sm:text-4xl text-white mb-2">=</div>
               
               <motion.div
-                className={`text-5xl font-bold min-h-[60px] flex items-center justify-center ${
+                className={`text-4xl sm:text-5xl font-bold min-h-[60px] flex items-center justify-center ${
                   showFeedback === 'incorrect' ? 'animate-shake' : ''
                 }`}
                 animate={
@@ -322,17 +391,32 @@ export default function GameArena({ config, onGameEnd }: GameArenaProps) {
                   </motion.span>
                 )}
               </motion.div>
+              
+              {/* Show correct answer when user is wrong */}
+              {showFeedback === 'incorrect' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-4 text-2xl sm:text-3xl text-green-400 font-bold"
+                >
+                  Correct antwoord: {currentQuestion.answer}
+                </motion.div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Numpad */}
-        <Numpad
-          onNumberClick={handleNumberClick}
-          onBackspace={handleBackspace}
-          onClear={handleClear}
-        />
+        <div className="flex-shrink-0">
+          <Numpad
+            onNumberClick={handleNumberClick}
+            onBackspace={handleBackspace}
+            onClear={handleClear}
+          />
+        </div>
       </div>
     </div>
+  </div>
   );
 }

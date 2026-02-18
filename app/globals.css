@@ -119,8 +119,28 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
+  
+  html, body {
     @apply bg-background text-foreground;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent mobile browser UI from showing/hiding */
+  html {
+    overscroll-behavior: none;
+    touch-action: pan-y;
+  }
+  
+  body {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Safe area for notched devices */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .pb-safe {
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
   }
 }
 

@@ -1,4 +1,16 @@
+let soundEnabled = false;
+
+export function setSoundEnabled(enabled: boolean) {
+  soundEnabled = enabled;
+}
+
+export function isSoundEnabled(): boolean {
+  return soundEnabled;
+}
+
 export function playCorrectSound() {
+  if (!soundEnabled) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -22,6 +34,8 @@ export function playCorrectSound() {
 }
 
 export function playIncorrectSound() {
+  if (!soundEnabled) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -45,6 +59,8 @@ export function playIncorrectSound() {
 }
 
 export function playComboSound(combo: number) {
+  if (!soundEnabled) return;
+  
   try {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();

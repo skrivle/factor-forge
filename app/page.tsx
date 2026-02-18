@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import ActivityHeatmap from '@/components/ActivityHeatmap';
 
 interface UserStats {
   current_streak: number;
@@ -54,7 +55,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 pb-20">
       <div className="max-w-4xl mx-auto py-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -138,6 +139,16 @@ export default function Home() {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Activity Heatmap */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mb-8"
+        >
+          <ActivityHeatmap weeks={20} />
         </motion.div>
 
         <div className="text-center text-xs text-gray-500 mt-8">

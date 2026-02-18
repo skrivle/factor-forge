@@ -24,8 +24,8 @@ export interface GameState {
   timeLeft: number;
 }
 
-// Custom tables: 1, 2, 3, 4, 5, and 8
-const ALLOWED_TABLES = [1, 2, 3, 4, 5, 8];
+// Custom tables: 1, 2, 3, 4, 5, 8, and 10
+const ALLOWED_TABLES = [1, 2, 3, 4, 5, 8, 10];
 
 export const DIFFICULTY_CONFIGS = {
   child: {
@@ -43,8 +43,9 @@ export const DIFFICULTY_CONFIGS = {
 };
 
 export function generateQuestion(allowedTables: number[]): Question {
-  // Pick random numbers from the allowed tables
-  const num1 = allowedTables[Math.floor(Math.random() * allowedTables.length)];
+  // Pick any multiplier from 1 to 10 (first number)
+  const num1 = Math.floor(Math.random() * 10) + 1;
+  // Pick a random table from allowed tables (second number)
   const num2 = allowedTables[Math.floor(Math.random() * allowedTables.length)];
   return {
     num1,
@@ -53,12 +54,71 @@ export function generateQuestion(allowedTables: number[]): Question {
   };
 }
 
-export function generateQuestions(config: GameConfig): Question[] {
-  const questions: Question[] = [];
-  for (let i = 0; i < config.questionCount; i++) {
-    questions.push(generateQuestion(config.allowedTables));
+// Helper function to shuffle an array using Fisher-Yates algorithm
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return questions;
+  return shuffled;
+}
+
+export function generateQuestions(config: GameConfig): Question[] {
+  const { allowedTables, questionCount } = config;
+  const questions: Question[] = [];
+  const usedQuestions = new Set<string>();
+  
+  // First, create a complete set of all possible questions
+  // For each multiplier (1-10), multiply by allowed tables (1,2,3,4,5,8,10)
+  const baseQuestions: Question[] = [];
+  
+  for (let multiplier = 1; multiplier <= 10; multiplier++) {
+    for (const table of allowedTables) {
+      baseQuestions.push({
+        num1: multiplier,
+        num2: table,
+        answer: multiplier * table,
+      });
+    }
+  }
+  
+  // Shuffle the base questions (10 multipliers × 7 tables = 70 unique questions)
+  const shuffledBase = shuffleArray(baseQuestions);
+  
+  // Take questions from shuffled pool, avoiding exact duplicates
+  for (const question of shuffledBase) {
+    if (questions.length >= questionCount) break;
+    
+    const key = `${question.num1}x${question.num2}`;
+    if (!usedQuestions.has(key)) {
+      questions.push(question);
+      usedQuestions.add(key);
+    }
+  }
+  
+  // If we still need more questions (unlikely with current settings), generate random unique ones
+  let attempts = 0;
+  const maxAttempts = 1000;
+  
+  while (questions.length < questionCount && attempts < maxAttempts) {
+    attempts++;
+    const num1 = Math.floor(Math.random() * 10) + 1;
+    const num2 = allowedTables[Math.floor(Math.random() * allowedTables.length)];
+    const key = `${num1}x${num2}`;
+    
+    if (!usedQuestions.has(key)) {
+      questions.push({
+        num1,
+        num2,
+        answer: num1 * num2,
+      });
+      usedQuestions.add(key);
+    }
+  }
+  
+  // Final shuffle to randomize the order
+  return shuffleArray(questions.slice(0, questionCount));
 }
 
 export function calculateAccuracy(correct: number, total: number): number {
