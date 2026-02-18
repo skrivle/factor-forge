@@ -141,16 +141,6 @@ export default function Home() {
           </Card>
         </motion.div>
 
-        {/* Activity Heatmap */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mb-8"
-        >
-          <ActivityHeatmap weeks={20} />
-        </motion.div>
-
         <div className="text-center text-xs text-gray-500 mt-8">
           <p>Factor Forge - Tafeloefening voor het Gezin</p>
           <p className="mt-1">Gemaakt met Next.js, TypeScript, en Tailwind CSS</p>

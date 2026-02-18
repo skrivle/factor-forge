@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import ActivityHeatmap from '@/components/ActivityHeatmap';
 
 interface LeaderboardEntry {
   id: string;
@@ -141,9 +142,13 @@ export default function LeaderboardPage() {
                               </div>
                               <div>
                                 <div className="text-xs text-gray-400">Reeks</div>
-                                <div className="text-xl font-bold text-orange-400 flex items-center gap-1">
+                                <div className="text-xl font-bold text-orange-400 flex items-center gap-1.5">
                                   {entry.current_streak || 0}
-                                  {(entry.current_streak || 0) >= 3 && <span>🔥</span>}
+                                  {(entry.current_streak || 0) >= 7 && <span>🔥🔥</span>}
+                                  {(entry.current_streak || 0) >= 3 && (entry.current_streak || 0) < 7 && <span>🔥</span>}
+                                  {(entry.current_streak || 0) > 0 && (entry.current_streak || 0) < 3 && (
+                                    <span className="w-3 h-3 rounded-full bg-green-400 inline-block"></span>
+                                  )}
                                 </div>
                               </div>
                               <div>
@@ -200,6 +205,15 @@ export default function LeaderboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Activity Heatmap for current user */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <ActivityHeatmap weeks={20} />
+        </motion.div>
       </div>
     </div>
   );

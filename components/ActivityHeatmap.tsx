@@ -40,20 +40,28 @@ export default function ActivityHeatmap({ weeks = 52 }: ActivityHeatmapProps) {
   const generateGrid = () => {
     const grid: (ActivityDay | null)[][] = [];
     const today = new Date();
-    const daysToShow = weeks * 7;
+    today.setHours(0, 0, 0, 0);
     
-    // Start from N weeks ago
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - daysToShow);
+    // Calculate end date - align to the Saturday that includes today
+    const endDate = new Date(today);
+    const todayDayOfWeek = endDate.getDay();
+    const daysUntilSaturday = (6 - todayDayOfWeek) % 7;
+    endDate.setDate(endDate.getDate() + daysUntilSaturday);
     
-    // Find the previous Sunday to align the grid
+    // Start from N weeks before the end date
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - (weeks * 7) + 1);
+    
+    // Align to Sunday
     const dayOfWeek = startDate.getDay();
     startDate.setDate(startDate.getDate() - dayOfWeek);
 
     // Create activity map for quick lookup
     const activityMap = new Map<string, ActivityDay>();
     activity.forEach(day => {
-      activityMap.set(day.date, day);
+      // Normalize date to YYYY-MM-DD format (strip time and timezone)
+      const normalizedDate = day.date.split('T')[0];
+      activityMap.set(normalizedDate, { ...day, date: normalizedDate });
     });
 
     // Generate grid (7 rows for days of week, N columns for weeks)
