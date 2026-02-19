@@ -69,25 +69,42 @@ export function generateQuestions(config: GameConfig): Question[] {
   const questions: Question[] = [];
   const usedQuestions = new Set<string>();
   
-  // First, create a complete set of all possible questions
-  // For each multiplier (1-10), multiply by allowed tables (1,2,3,4,5,8,10)
-  const baseQuestions: Question[] = [];
+  // Define weights for each table (lower weight = less frequent)
+  // Tables 1, 2, 10 get weight of 1, others get weight of 3
+  const tableWeights: Record<number, number> = {
+    1: 1,
+    2: 1,
+    3: 3,
+    4: 3,
+    5: 3,
+    8: 3,
+    10: 1,
+  };
+  
+  // Create a weighted pool of questions
+  // Each question appears multiple times based on its table's weight
+  const weightedQuestions: Question[] = [];
   
   for (let multiplier = 1; multiplier <= 10; multiplier++) {
     for (const table of allowedTables) {
-      baseQuestions.push({
+      const weight = tableWeights[table] || 1;
+      const question = {
         num1: multiplier,
         num2: table,
         answer: multiplier * table,
-      });
+      };
+      // Add the question 'weight' times to increase its probability
+      for (let i = 0; i < weight; i++) {
+        weightedQuestions.push(question);
+      }
     }
   }
   
-  // Shuffle the base questions (10 multipliers × 7 tables = 70 unique questions)
-  const shuffledBase = shuffleArray(baseQuestions);
+  // Shuffle the weighted pool
+  const shuffledWeighted = shuffleArray(weightedQuestions);
   
   // Take questions from shuffled pool, avoiding exact duplicates
-  for (const question of shuffledBase) {
+  for (const question of shuffledWeighted) {
     if (questions.length >= questionCount) break;
     
     const key = `${question.num1}x${question.num2}`;
@@ -97,14 +114,29 @@ export function generateQuestions(config: GameConfig): Question[] {
     }
   }
   
-  // If we still need more questions (unlikely with current settings), generate random unique ones
+  // If we still need more questions (unlikely with current settings), 
+  // generate from weighted pool to maintain distribution
   let attempts = 0;
   const maxAttempts = 1000;
   
   while (questions.length < questionCount && attempts < maxAttempts) {
     attempts++;
+    
+    // Select table with weighted probability
+    const totalWeight = allowedTables.reduce((sum, t) => sum + (tableWeights[t] || 1), 0);
+    let random = Math.random() * totalWeight;
+    let selectedTable = allowedTables[0];
+    
+    for (const table of allowedTables) {
+      random -= (tableWeights[table] || 1);
+      if (random <= 0) {
+        selectedTable = table;
+        break;
+      }
+    }
+    
     const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = allowedTables[Math.floor(Math.random() * allowedTables.length)];
+    const num2 = selectedTable;
     const key = `${num1}x${num2}`;
     
     if (!usedQuestions.has(key)) {
