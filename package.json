@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/pre-dev.js && next dev",
+    "build": "node scripts/migrate.js up && next build",
     "start": "next start",
     "lint": "eslint",
-    "setup": "chmod +x setup.sh && ./setup.sh"
+    "setup": "chmod +x setup.sh && ./setup.sh",
+    "db:verify": "node scripts/verify-db-connection.js",
+    "db:migrate": "node scripts/migrate.js up",
+    "db:migrate:status": "node scripts/migrate.js status",
+    "db:create-migration": "node scripts/create-migration.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -15,6 +19,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.3.1",
     "framer-motion": "^11.15.0",
     "lucide-react": "^0.468.0",
     "next": "16.1.6",

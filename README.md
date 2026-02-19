@@ -58,32 +58,27 @@ openssl rand -base64 32
 
 ### 3. Set Up Database
 
-1. Create a Vercel Postgres database or use Neon (recommended as Vercel Postgres is deprecated)
-2. Copy the connection strings to your `.env.local`
-3. Run the schema SQL:
+**Automated Setup (Recommended):**
+
+The project uses an automated migration system. Just start the dev server and migrations will run automatically:
 
 ```bash
-# Connect to your database and run:
-cat db/schema.sql
+npm run dev
 ```
 
-Or copy the contents of `db/schema.sql` and execute it in your database console.
+Migrations run automatically and set up all required tables!
 
-#### Enable Adaptive Learning (Optional but Recommended)
+**Manual Setup (Legacy):**
 
-To enable the adaptive learning feature that tracks user performance and creates personalized practice sessions:
+1. Create a Neon database (Vercel Postgres is deprecated)
+2. Copy the connection string to your `.env.local` as `POSTGRES_URL`
+3. Run migrations manually:
 
 ```bash
-# Run the migration script
-./scripts/migrate-adaptive-learning.sh
+npm run db:migrate
 ```
 
-Or manually:
-```bash
-psql $POSTGRES_URL -f db/migrations/003_add_question_stats.sql
-```
-
-See `ADAPTIVE_LEARNING_SUMMARY.md` for details on how this feature works.
+**See `MIGRATIONS.md` for complete documentation on the migration system.**
 
 ### 4. Create Your First User
 

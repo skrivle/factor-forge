@@ -19,6 +19,10 @@
 
 #### Step 2: Run Database Schema
 
+**NOTE:** If you're using the automated migration system (recommended), you can skip this step! Migrations will run automatically during deployment.
+
+**Manual Setup (Legacy):**
+
 1. In Neon Console, click **SQL Editor**
 2. Copy the contents of `db/quickstart.sql` 
 3. Paste and run it in the SQL Editor
@@ -63,13 +67,15 @@ Or use: https://generate-secret.vercel.app/32
 #### Step 5: Deploy
 
 1. Click **Deploy**
-2. Wait for build to complete
+2. Wait for build to complete (migrations will run automatically during build!)
 3. Visit your app URL
 4. Sign in with sample users:
    - Dad (PIN: 1234)
    - Mom (PIN: 5678)
    - Alice (PIN: 1111)
    - Bob (PIN: 2222)
+
+**Note:** The build process includes automatic database migrations. Check the build logs to see migration status.
 
 ## Alternative: Deploy with Vercel CLI
 
@@ -93,6 +99,30 @@ vercel --prod
 ```
 
 ## Post-Deployment
+
+### Database Migrations
+
+This project uses an **automated migration system**:
+
+- ✅ Migrations run automatically during Vercel builds
+- ✅ Check migration status: `https://your-app.vercel.app/api/migrate?status=true`
+- ✅ Manually trigger migrations (in production):
+  ```bash
+  curl -X POST https://your-app.vercel.app/api/migrate \
+    -H "Authorization: Bearer YOUR_MIGRATION_SECRET"
+  ```
+
+**Setting up the Migration API (Optional):**
+
+For production security, set `MIGRATION_SECRET` in your Vercel environment variables:
+```bash
+vercel env add MIGRATION_SECRET
+# Enter a secure random string
+```
+
+Then you can trigger migrations manually via API using that secret.
+
+**See `MIGRATIONS.md` for complete documentation.**
 
 ### Custom Domain
 
