@@ -1,0 +1,31 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: Scan for secrets
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Run secret detection script
+        run: |
+          chmod +x scripts/detect-secrets.sh
+          ./scripts/detect-secrets.sh
+      
+      - name: Check for sensitive files
+        run: |
+          if git ls-files | grep -E '\.(env|pem|key|p12|pfx)$'; then
+            echo "❌ Sensitive files found in repository"
+            exit 1
+          fi
+          echo "✅ No sensitive files found"

@@ -11,7 +11,9 @@
     "db:verify": "node scripts/verify-db-connection.js",
     "db:migrate": "node scripts/migrate.js up",
     "db:migrate:status": "node scripts/migrate.js status",
-    "db:create-migration": "node scripts/create-migration.js"
+    "db:create-migration": "node scripts/create-migration.js",
+    "security:scan": "./scripts/detect-secrets.sh",
+    "prepare": "husky"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "husky": "^9.1.7",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
