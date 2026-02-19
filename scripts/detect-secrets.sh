@@ -24,11 +24,13 @@ check_pattern() {
   
   results=$(grep -rEI "$pattern" . \
     --exclude-dir={node_modules,.git,.next,build,dist,coverage,.husky} \
-    --exclude="*.{log,lock,md}" \
+    --exclude="*.{log,lock}" \
     --exclude="package-lock.json" \
     --exclude="detect-secrets.sh" \
     --exclude="clean-git-history.sh" \
     --exclude="rotate-secrets.sh" \
+    --exclude="SECURITY_GUIDELINES.md" \
+    --exclude="SECURITY_SETUP.md" \
     --exclude=".env*" \
     2>/dev/null || true)
   
