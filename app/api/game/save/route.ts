@@ -5,8 +5,7 @@ import {
   initializeUserStats,
   updateBestScore,
   incrementCorrectAnswers,
-  updateStreak,
-  getUserStats,
+  calculateStreak,
 } from '@/lib/db/queries';
 
 export async function POST(req: NextRequest) {
@@ -33,40 +32,17 @@ export async function POST(req: NextRequest) {
     // Update best score
     await updateBestScore(userId, score);
 
-    // Get current stats to calculate streak
-    const stats = await getUserStats(userId);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    let newStreak = 1;
-    if (stats?.last_played_date) {
-      const lastPlayed = new Date(stats.last_played_date);
-      lastPlayed.setHours(0, 0, 0, 0);
-      
-      const daysDiff = Math.floor((today.getTime() - lastPlayed.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (daysDiff === 0) {
-        // Same day - keep streak
-        newStreak = stats.current_streak;
-      } else if (daysDiff === 1) {
-        // Yesterday - increment streak
-        newStreak = stats.current_streak + 1;
-      } else {
-        // More than 1 day - reset streak
-        newStreak = 1;
-      }
-    }
-
-    await updateStreak(userId, newStreak, today);
-
     // Calculate correct answers from accuracy
     const totalQuestions = 20; // From config
     const correctAnswers = Math.round((accuracy / 100) * totalQuestions);
     await incrementCorrectAnswers(userId, correctAnswers);
 
+    // Calculate current streak from session data
+    const currentStreak = await calculateStreak(userId);
+
     return NextResponse.json({ 
       success: true,
-      streak: newStreak,
+      streak: currentStreak,
     });
   } catch (error) {
     console.error('Error saving game:', error);

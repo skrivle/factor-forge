@@ -24,8 +24,7 @@ export interface GameSession {
 
 export interface UserStats {
   user_id: string;
-  current_streak: number;
-  last_played_date: Date | null;
   best_score: number;
   total_correct_answers: number;
+  // Note: current_streak is calculated dynamically from sessions, not stored
 }

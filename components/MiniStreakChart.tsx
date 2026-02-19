@@ -3,13 +3,12 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 
-interface ActivityDay {
-  date: string | Date;
-  game_count: number;
+interface ActivityEntry {
+  timestamp: string;
 }
 
 interface MiniStreakChartProps {
-  activity: ActivityDay[];
+  activity: ActivityEntry[];
   days?: number; // Number of days to show (default 14)
 }
 
@@ -18,24 +17,18 @@ export default function MiniStreakChart({ activity, days = 14 }: MiniStreakChart
 
   // Generate data for the last N days
   const generateDays = () => {
-    const result: ({ date: string; game_count: number } | null)[] = [];
+    const result: ({ date: string; game_count: number })[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Create activity map for quick lookup
-    const activityMap = new Map<string, { date: string; game_count: number }>();
-    activity.forEach(day => {
-      // Handle both Date objects and strings
-      let dateStr: string;
-      if (day.date instanceof Date) {
-        dateStr = day.date.toISOString().split('T')[0];
-      } else if (typeof day.date === 'string') {
-        dateStr = day.date.split('T')[0];
-      } else {
-        // Fallback: convert to string
-        dateStr = String(day.date).split('T')[0];
-      }
-      activityMap.set(dateStr, { date: dateStr, game_count: day.game_count });
+    // Group activity by local date
+    const activityMap = new Map<string, number>();
+    activity.forEach(entry => {
+      // Convert UTC timestamp to local date
+      const localDate = new Date(entry.timestamp);
+      localDate.setHours(0, 0, 0, 0);
+      const dateStr = localDate.toISOString().split('T')[0];
+      activityMap.set(dateStr, (activityMap.get(dateStr) || 0) + 1);
     });
 
     // Generate last N days
@@ -43,9 +36,9 @@ export default function MiniStreakChart({ activity, days = 14 }: MiniStreakChart
       const currentDate = new Date(today);
       currentDate.setDate(currentDate.getDate() - i);
       const dateStr = currentDate.toISOString().split('T')[0];
-      const dayActivity = activityMap.get(dateStr);
+      const gameCount = activityMap.get(dateStr) || 0;
       
-      result.push(dayActivity || { date: dateStr, game_count: 0 });
+      result.push({ date: dateStr, game_count: gameCount });
     }
 
     return result;
@@ -64,8 +57,6 @@ export default function MiniStreakChart({ activity, days = 14 }: MiniStreakChart
     <div className="relative">
       <div className="flex gap-0.5 sm:gap-1">
         {daysData.map((day, index) => {
-          if (!day) return <div key={index} className="w-1.5 h-4 sm:w-2 sm:h-5" />;
-          
           return (
             <motion.div
               key={index}

@@ -1,5 +1,6 @@
 import { sql } from './client';
 import type { User, GameSession, UserStats } from './client';
+import { getTodayString, toLocalDateString, daysDiff } from '@/lib/date-utils';
 
 // User queries
 export async function createUser(name: string, pin: string, role: 'parent' | 'child' = 'child') {
@@ -75,15 +76,6 @@ export async function initializeUserStats(userId: string) {
   return result[0] as UserStats;
 }
 
-export async function updateStreak(userId: string, currentStreak: number, lastPlayedDate: Date) {
-  await sql`
-    UPDATE user_stats
-    SET current_streak = ${currentStreak},
-        last_played_date = ${lastPlayedDate.toISOString().split('T')[0]}
-    WHERE user_id = ${userId}
-  `;
-}
-
 export async function updateBestScore(userId: string, score: number) {
   await sql`
     UPDATE user_stats
@@ -100,6 +92,60 @@ export async function incrementCorrectAnswers(userId: string, count: number) {
   `;
 }
 
+// Streak calculation (now calculated from sessions, not stored)
+export async function calculateStreak(userId: string): Promise<number> {
+  // Get all unique play dates for this user (converted to local timezone)
+  const sessions = await sql`
+    SELECT DISTINCT
+      TO_CHAR(completed_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Brussels', 'YYYY-MM-DD') as play_date
+    FROM sessions
+    WHERE user_id = ${userId}
+    ORDER BY play_date DESC
+  `;
+
+  if (sessions.length === 0) {
+    return 0;
+  }
+
+  // Get unique dates as YYYY-MM-DD strings (already in correct format from TO_CHAR)
+  const uniqueDates = sessions.map((s: any) => s.play_date);
+
+  // Check if the most recent play was today or yesterday
+  const todayStr = getTodayString();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = toLocalDateString(yesterday);
+
+  const mostRecentPlay = uniqueDates[0];
+
+  // Streak only counts if last play was today or yesterday
+  if (mostRecentPlay !== todayStr && mostRecentPlay !== yesterdayStr) {
+    return 0;
+  }
+
+  // Count consecutive days backwards from most recent play
+  let streak = 1;
+  let currentDateStr = mostRecentPlay;
+
+  for (let i = 1; i < uniqueDates.length; i++) {
+    // Calculate what the previous day should be
+    const currentDate = new Date(currentDateStr + 'T12:00:00'); // Use noon to avoid timezone issues
+    currentDate.setDate(currentDate.getDate() - 1);
+    const expectedPrevStr = currentDate.toISOString().split('T')[0];
+    
+    const actualPrevStr = uniqueDates[i];
+
+    if (actualPrevStr === expectedPrevStr) {
+      streak++;
+      currentDateStr = actualPrevStr;
+    } else {
+      break; // Streak is broken
+    }
+  }
+
+  return streak;
+}
+
 // Leaderboard queries
 export async function getLeaderboard(limit: number = 10) {
   const result = await sql`
@@ -107,15 +153,23 @@ export async function getLeaderboard(limit: number = 10) {
       u.id,
       u.name,
       u.role,
-      COALESCE(s.current_streak, 0) as current_streak,
       COALESCE(s.best_score, 0) as best_score,
       COALESCE(s.total_correct_answers, 0) as total_correct_answers
     FROM users u
     LEFT JOIN user_stats s ON u.id = s.user_id
-    ORDER BY s.best_score DESC NULLS LAST, s.current_streak DESC NULLS LAST
+    ORDER BY s.best_score DESC NULLS LAST, s.total_correct_answers DESC NULLS LAST
     LIMIT ${limit}
   `;
-  return result;
+  
+  // Calculate streaks for each user
+  const withStreaks = await Promise.all(
+    result.map(async (user: any) => ({
+      ...user,
+      current_streak: await calculateStreak(user.id),
+    }))
+  );
+  
+  return withStreaks;
 }
 
 export async function getWeeklyLeaderboard() {
@@ -144,24 +198,21 @@ export async function getUserActivities(userIds: string[], days: number = 14) {
   const result = await sql`
     SELECT 
       user_id,
-      DATE(completed_at) as date,
-      COUNT(*) as game_count
+      completed_at
     FROM sessions
     WHERE user_id = ANY(${userIds}::uuid[])
       AND completed_at >= NOW() - INTERVAL '1 day' * ${days}
-    GROUP BY user_id, DATE(completed_at)
-    ORDER BY user_id, date ASC
+    ORDER BY user_id, completed_at ASC
   `;
 
-  // Group by user_id and convert dates to strings for serialization
+  // Group by user_id and date (in UTC for now, will be converted client-side)
   const activities: Record<string, any[]> = {};
   result.forEach((row: any) => {
     if (!activities[row.user_id]) {
       activities[row.user_id] = [];
     }
     activities[row.user_id].push({
-      date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : row.date,
-      game_count: Number(row.game_count)
+      timestamp: row.completed_at instanceof Date ? row.completed_at.toISOString() : row.completed_at
     });
   });
 

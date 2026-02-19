@@ -47,7 +47,7 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
   const [showFeedback, setShowFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [isGameOver, setIsGameOver] = useState(false);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
-  const [soundEnabled, setSoundEnabledState] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled());
 
   const currentQuestion = gameState.questions[gameState.currentQuestionIndex];
 

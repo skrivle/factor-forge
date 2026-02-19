@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { getUserStats, initializeUserStats } from '@/lib/db/queries';
+import { getUserStats, initializeUserStats, calculateStreak } from '@/lib/db/queries';
 
 export async function GET() {
   try {
@@ -18,7 +18,13 @@ export async function GET() {
       stats = await initializeUserStats(userId);
     }
 
-    return NextResponse.json(stats);
+    // Calculate current streak from session data
+    const currentStreak = await calculateStreak(userId);
+
+    return NextResponse.json({
+      ...stats,
+      current_streak: currentStreak,
+    });
   } catch (error) {
     console.error('Error fetching user stats:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

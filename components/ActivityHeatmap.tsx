@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+interface GameSession {
+  timestamp: string;
+  score: number;
+}
+
 interface ActivityDay {
   date: string;
   game_count: number;
@@ -28,7 +33,33 @@ export default function ActivityHeatmap({ weeks = 52 }: ActivityHeatmapProps) {
     try {
       const response = await fetch('/api/activity');
       const data = await response.json();
-      setActivity(data.activity || []);
+      
+      // Group sessions by local date
+      const sessionsByDate = new Map<string, GameSession[]>();
+      (data.sessions || []).forEach((session: GameSession) => {
+        const localDate = new Date(session.timestamp);
+        localDate.setHours(0, 0, 0, 0);
+        const dateStr = localDate.toISOString().split('T')[0];
+        
+        if (!sessionsByDate.has(dateStr)) {
+          sessionsByDate.set(dateStr, []);
+        }
+        sessionsByDate.get(dateStr)!.push(session);
+      });
+      
+      // Convert to ActivityDay format
+      const activityDays: ActivityDay[] = [];
+      sessionsByDate.forEach((sessions, date) => {
+        const scores = sessions.map(s => s.score);
+        activityDays.push({
+          date,
+          game_count: sessions.length,
+          avg_score: scores.reduce((a, b) => a + b, 0) / scores.length,
+          max_score: Math.max(...scores)
+        });
+      });
+      
+      setActivity(activityDays);
     } catch (error) {
       console.error('Error fetching activity:', error);
     } finally {
@@ -59,9 +90,7 @@ export default function ActivityHeatmap({ weeks = 52 }: ActivityHeatmapProps) {
     // Create activity map for quick lookup
     const activityMap = new Map<string, ActivityDay>();
     activity.forEach(day => {
-      // Normalize date to YYYY-MM-DD format (strip time and timezone)
-      const normalizedDate = day.date.split('T')[0];
-      activityMap.set(normalizedDate, { ...day, date: normalizedDate });
+      activityMap.set(day.date, day);
     });
 
     // Generate grid (7 rows for days of week, N columns for weeks)

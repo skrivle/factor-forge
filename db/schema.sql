@@ -21,10 +21,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- Streaks & Stats
+-- Note: current_streak is now calculated dynamically from sessions table
 CREATE TABLE IF NOT EXISTS user_stats (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  current_streak INTEGER DEFAULT 0,
-  last_played_date DATE,
   best_score INTEGER DEFAULT 0,
   total_correct_answers INTEGER DEFAULT 0
 );

@@ -9,21 +9,25 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get daily activity for the last 365 days
+    // Get all sessions for the last 365 days with timestamps
+    // Client will group by date in local timezone
     const result = await sql`
       SELECT 
-        DATE(completed_at) as date,
-        COUNT(*) as game_count,
-        AVG(score) as avg_score,
-        MAX(score) as max_score
+        completed_at,
+        score
       FROM sessions
       WHERE user_id = ${(session.user as any).id}
         AND completed_at >= NOW() - INTERVAL '365 days'
-      GROUP BY DATE(completed_at)
-      ORDER BY date ASC
+      ORDER BY completed_at ASC
     `;
 
-    return NextResponse.json({ activity: result });
+    // Return raw sessions with timestamps
+    const sessions = result.map((row: any) => ({
+      timestamp: row.completed_at instanceof Date ? row.completed_at.toISOString() : row.completed_at,
+      score: Number(row.score)
+    }));
+
+    return NextResponse.json({ sessions });
   } catch (error) {
     console.error('Error fetching activity:', error);
     return NextResponse.json({ error: 'Failed to fetch activity' }, { status: 500 });
