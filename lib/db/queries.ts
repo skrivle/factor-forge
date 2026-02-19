@@ -223,7 +223,7 @@ export async function getUserActivities(userIds: string[], days: number = 14) {
 // Question Stats queries for adaptive learning
 export async function saveQuestionStats(
   userId: string,
-  sessionId: string,
+  sessionId: string | null, // null for practice mode (doesn't count toward stats)
   questions: Question[],
   userAnswers: (number | null)[],
   isCorrectArray: boolean[],
