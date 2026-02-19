@@ -10,6 +10,7 @@ A competitive, family-oriented multiplication practice app focused on speed, acc
 - 🏆 **Family Leaderboard** - Compete with family members
 - 📊 **Daily Streaks** - Track and maintain your practice habits
 - 🎯 **Adaptive Difficulty** - Different modes for kids (1-12 tables) and adults (2-20 tables with decreasing time)
+- 🧠 **Adaptive Learning** - AI-powered practice sessions that focus on your weak areas (NEW!)
 - 🎨 **Arcade Vibe** - Dark mode with neon colors and animations
 - 🔊 **Sound Effects** - Browser-native synth tones for feedback
 - 📱 **Cross-Device** - Works on desktop and mobile with on-screen numpad
@@ -67,6 +68,22 @@ cat db/schema.sql
 ```
 
 Or copy the contents of `db/schema.sql` and execute it in your database console.
+
+#### Enable Adaptive Learning (Optional but Recommended)
+
+To enable the adaptive learning feature that tracks user performance and creates personalized practice sessions:
+
+```bash
+# Run the migration script
+./scripts/migrate-adaptive-learning.sh
+```
+
+Or manually:
+```bash
+psql $POSTGRES_URL -f db/migrations/003_add_question_stats.sql
+```
+
+See `ADAPTIVE_LEARNING_SUMMARY.md` for details on how this feature works.
 
 ### 4. Create Your First User
 

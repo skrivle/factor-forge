@@ -6,6 +6,7 @@ import {
   updateBestScore,
   incrementCorrectAnswers,
   calculateStreak,
+  saveQuestionStats,
 } from '@/lib/db/queries';
 
 export async function POST(req: NextRequest) {
@@ -17,14 +18,22 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = (session.user as any).id;
-    const { score, accuracy, difficultyLevel } = await req.json();
+    const { 
+      score, 
+      accuracy, 
+      difficultyLevel,
+      questions,
+      userAnswers,
+      isCorrectAnswers,
+      timeTaken,
+    } = await req.json();
 
     if (typeof score !== 'number' || typeof accuracy !== 'number') {
       return NextResponse.json({ error: 'Invalid data' }, { status: 400 });
     }
 
     // Save game session
-    await createSession(userId, score, accuracy, difficultyLevel);
+    const gameSession = await createSession(userId, score, accuracy, difficultyLevel);
 
     // Initialize stats if they don't exist
     await initializeUserStats(userId);
@@ -36,6 +45,18 @@ export async function POST(req: NextRequest) {
     const totalQuestions = 20; // From config
     const correctAnswers = Math.round((accuracy / 100) * totalQuestions);
     await incrementCorrectAnswers(userId, correctAnswers);
+
+    // Save detailed question stats if provided
+    if (questions && userAnswers && isCorrectAnswers && timeTaken) {
+      await saveQuestionStats(
+        userId,
+        gameSession.id,
+        questions,
+        userAnswers,
+        isCorrectAnswers,
+        timeTaken
+      );
+    }
 
     // Calculate current streak from session data
     const currentStreak = await calculateStreak(userId);

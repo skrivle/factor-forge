@@ -23,13 +23,18 @@ interface GameArenaProps {
     accuracy: number;
     correctAnswers: number;
     incorrectAnswers: number;
+    questions: Question[];
+    userAnswers: (number | null)[];
+    isCorrectAnswers: boolean[];
+    timeTaken: (number | null)[];
   }) => void;
   onExit?: () => void;
 }
 
 export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps) {
   const [gameState, setGameState] = useState<GameState>(() => {
-    const questions = generateQuestions(config);
+    // Use pre-generated questions if available (for practice mode), otherwise generate new ones
+    const questions = config.preGeneratedQuestions || generateQuestions(config);
     const firstQuestionTime = getTimeForQuestion(0, config.timePerQuestion, config.decreaseTime, questions[0]);
     return {
       questions,
@@ -41,6 +46,9 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
       userAnswers: new Array(questions.length).fill(null),
       combo: 0,
       timeLeft: firstQuestionTime,
+      timeTaken: new Array(questions.length).fill(null),
+      isCorrectAnswers: new Array(questions.length).fill(false),
+      questionStartTime: Date.now(),
     };
   });
 
@@ -87,12 +95,23 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
             setGameState((prev) => {
               const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
               
+              // Update answer tracking arrays for timeout
+              const newUserAnswers = [...prev.userAnswers];
+              newUserAnswers[prev.currentQuestionIndex] = null; // No answer given
+              const newIsCorrectAnswers = [...prev.isCorrectAnswers];
+              newIsCorrectAnswers[prev.currentQuestionIndex] = false;
+              const newTimeTaken = [...prev.timeTaken];
+              newTimeTaken[prev.currentQuestionIndex] = null; // Timed out
+              
               if (isLastQuestion) {
                 setIsGameOver(true);
                 return {
                   ...prev,
                   incorrectAnswers: prev.incorrectAnswers + 1,
                   combo: 0,
+                  userAnswers: newUserAnswers,
+                  isCorrectAnswers: newIsCorrectAnswers,
+                  timeTaken: newTimeTaken,
                 };
               }
 
@@ -111,6 +130,10 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
                 incorrectAnswers: prev.incorrectAnswers + 1,
                 combo: 0,
                 timeLeft: nextTime,
+                userAnswers: newUserAnswers,
+                isCorrectAnswers: newIsCorrectAnswers,
+                timeTaken: newTimeTaken,
+                questionStartTime: Date.now(),
               };
             });
           }, 1500);
@@ -142,6 +165,10 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
         accuracy,
         correctAnswers: gameState.correctAnswers,
         incorrectAnswers: gameState.incorrectAnswers,
+        questions: gameState.questions,
+        userAnswers: gameState.userAnswers,
+        isCorrectAnswers: gameState.isCorrectAnswers,
+        timeTaken: gameState.timeTaken,
       });
     }
   }, [isGameOver, gameState, onGameEnd]);
@@ -153,6 +180,7 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
       setIsProcessingAnswer(true);
 
       const isCorrect = answer === currentQuestion.answer;
+      const timeTaken = (Date.now() - gameState.questionStartTime) / 1000; // Convert to seconds
 
       if (isCorrect) {
         playCorrectSound();
@@ -172,12 +200,23 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           setGameState((prev) => {
             const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
 
+            // Update answer tracking arrays
+            const newUserAnswers = [...prev.userAnswers];
+            newUserAnswers[prev.currentQuestionIndex] = answer;
+            const newIsCorrectAnswers = [...prev.isCorrectAnswers];
+            newIsCorrectAnswers[prev.currentQuestionIndex] = true;
+            const newTimeTaken = [...prev.timeTaken];
+            newTimeTaken[prev.currentQuestionIndex] = timeTaken;
+
             if (isLastQuestion) {
               setIsGameOver(true);
               return {
                 ...prev,
                 correctAnswers: prev.correctAnswers + 1,
                 combo: newCombo,
+                userAnswers: newUserAnswers,
+                isCorrectAnswers: newIsCorrectAnswers,
+                timeTaken: newTimeTaken,
               };
             }
 
@@ -196,6 +235,10 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
               correctAnswers: prev.correctAnswers + 1,
               combo: newCombo,
               timeLeft: nextTime,
+              userAnswers: newUserAnswers,
+              isCorrectAnswers: newIsCorrectAnswers,
+              timeTaken: newTimeTaken,
+              questionStartTime: Date.now(),
             };
           });
         }, 600); // Show correct feedback for 600ms
@@ -212,12 +255,23 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           setGameState((prev) => {
             const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
             
+            // Update answer tracking arrays
+            const newUserAnswers = [...prev.userAnswers];
+            newUserAnswers[prev.currentQuestionIndex] = answer;
+            const newIsCorrectAnswers = [...prev.isCorrectAnswers];
+            newIsCorrectAnswers[prev.currentQuestionIndex] = false;
+            const newTimeTaken = [...prev.timeTaken];
+            newTimeTaken[prev.currentQuestionIndex] = timeTaken;
+
             if (isLastQuestion) {
               setIsGameOver(true);
               return {
                 ...prev,
                 incorrectAnswers: prev.incorrectAnswers + 1,
                 combo: 0,
+                userAnswers: newUserAnswers,
+                isCorrectAnswers: newIsCorrectAnswers,
+                timeTaken: newTimeTaken,
               };
             }
 
@@ -236,12 +290,16 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
               incorrectAnswers: prev.incorrectAnswers + 1,
               combo: 0,
               timeLeft: nextTime,
+              userAnswers: newUserAnswers,
+              isCorrectAnswers: newIsCorrectAnswers,
+              timeTaken: newTimeTaken,
+              questionStartTime: Date.now(),
             };
           });
         }, 1500);
       }
     },
-    [currentQuestion, gameState.combo, config, isProcessingAnswer]
+    [currentQuestion, gameState.combo, gameState.questionStartTime, config, isProcessingAnswer]
   );
 
   // Auto-submit on correct answer OR show error on wrong answer
@@ -306,6 +364,8 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
     setShowFeedback('incorrect');
     setIsProcessingAnswer(true);
     
+    const timeTaken = (Date.now() - gameState.questionStartTime) / 1000;
+    
     // Show correct answer for 1.5 seconds before moving to next question
     setTimeout(() => {
       setUserInput('');
@@ -315,12 +375,23 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
       setGameState((prev) => {
         const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1;
         
+        // Update answer tracking arrays for skip
+        const newUserAnswers = [...prev.userAnswers];
+        newUserAnswers[prev.currentQuestionIndex] = null; // Skipped
+        const newIsCorrectAnswers = [...prev.isCorrectAnswers];
+        newIsCorrectAnswers[prev.currentQuestionIndex] = false;
+        const newTimeTaken = [...prev.timeTaken];
+        newTimeTaken[prev.currentQuestionIndex] = timeTaken;
+        
         if (isLastQuestion) {
           setIsGameOver(true);
           return {
             ...prev,
             incorrectAnswers: prev.incorrectAnswers + 1,
             combo: 0,
+            userAnswers: newUserAnswers,
+            isCorrectAnswers: newIsCorrectAnswers,
+            timeTaken: newTimeTaken,
           };
         }
 
@@ -339,6 +410,10 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           incorrectAnswers: prev.incorrectAnswers + 1,
           combo: 0,
           timeLeft: nextTime,
+          userAnswers: newUserAnswers,
+          isCorrectAnswers: newIsCorrectAnswers,
+          timeTaken: newTimeTaken,
+          questionStartTime: Date.now(),
         };
       });
     }, 1500);

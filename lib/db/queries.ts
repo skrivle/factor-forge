@@ -1,6 +1,7 @@
 import { sql } from './client';
-import type { User, GameSession, UserStats } from './client';
+import type { User, GameSession, UserStats, QuestionStat, WeakQuestion } from './client';
 import { getTodayString, toLocalDateString, daysDiff } from '@/lib/date-utils';
+import type { Question } from '@/lib/game/engine';
 
 // User queries
 export async function createUser(name: string, pin: string, role: 'parent' | 'child' = 'child') {
@@ -217,4 +218,99 @@ export async function getUserActivities(userIds: string[], days: number = 14) {
   });
 
   return activities;
+}
+
+// Question Stats queries for adaptive learning
+export async function saveQuestionStats(
+  userId: string,
+  sessionId: string,
+  questions: Question[],
+  userAnswers: (number | null)[],
+  isCorrectArray: boolean[],
+  timeTakenArray: (number | null)[]
+) {
+  // Batch insert all question stats
+  const values = questions.map((q, i) => ({
+    user_id: userId,
+    session_id: sessionId,
+    num1: q.num1,
+    num2: q.num2,
+    operation: q.operation,
+    correct_answer: q.answer,
+    user_answer: userAnswers[i],
+    is_correct: isCorrectArray[i],
+    time_taken: timeTakenArray[i],
+  }));
+
+  // Insert all in one query
+  for (const stat of values) {
+    await sql`
+      INSERT INTO question_stats 
+        (user_id, session_id, num1, num2, operation, correct_answer, user_answer, is_correct, time_taken)
+      VALUES 
+        (${stat.user_id}, ${stat.session_id}, ${stat.num1}, ${stat.num2}, ${stat.operation}, 
+         ${stat.correct_answer}, ${stat.user_answer}, ${stat.is_correct}, ${stat.time_taken})
+    `;
+  }
+}
+
+export async function getUserWeakQuestions(userId: string, limit: number = 20): Promise<WeakQuestion[]> {
+  const result = await sql`
+    SELECT 
+      user_id,
+      num1,
+      num2,
+      operation,
+      COUNT(*) as times_seen,
+      SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as times_incorrect,
+      AVG(CASE WHEN is_correct THEN 1.0 ELSE 0.0 END) as accuracy_rate,
+      AVG(time_taken) as avg_time_taken
+    FROM question_stats
+    WHERE user_id = ${userId}
+    GROUP BY user_id, num1, num2, operation
+    HAVING COUNT(*) >= 2
+    ORDER BY accuracy_rate ASC, times_incorrect DESC
+    LIMIT ${limit}
+  `;
+  
+  return result.map((row: any) => ({
+    user_id: row.user_id,
+    num1: parseInt(row.num1),
+    num2: parseInt(row.num2),
+    operation: row.operation,
+    times_seen: parseInt(row.times_seen),
+    times_incorrect: parseInt(row.times_incorrect),
+    accuracy_rate: parseFloat(row.accuracy_rate),
+    avg_time_taken: row.avg_time_taken ? parseFloat(row.avg_time_taken) : null,
+  }));
+}
+
+export async function getQuestionStats(
+  userId: string,
+  num1: number,
+  num2: number,
+  operation: 'multiplication' | 'division'
+) {
+  const result = await sql`
+    SELECT 
+      COUNT(*) as times_seen,
+      SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as times_correct,
+      SUM(CASE WHEN is_correct THEN 0 ELSE 1 END) as times_incorrect,
+      AVG(CASE WHEN is_correct THEN 1.0 ELSE 0.0 END) as accuracy_rate
+    FROM question_stats
+    WHERE user_id = ${userId}
+      AND num1 = ${num1}
+      AND num2 = ${num2}
+      AND operation = ${operation}
+  `;
+  
+  if (result.length === 0) return null;
+  
+  const row = result[0] as any;
+  return {
+    times_seen: parseInt(row.times_seen),
+    times_correct: parseInt(row.times_correct),
+    times_incorrect: parseInt(row.times_incorrect),
+    accuracy_rate: parseFloat(row.accuracy_rate),
+  };
 }

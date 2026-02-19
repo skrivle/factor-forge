@@ -85,18 +85,19 @@ export default function ExercisePage() {
                 <Button
                   onClick={() => setSelectedOperation('multiplication')}
                   variant={selectedOperation === 'multiplication' ? 'default' : 'outline'}
-                  className={`h-14 text-lg font-bold transition-all ${
+                  className={`h-14 text-sm sm:text-lg font-bold transition-all ${
                     selectedOperation === 'multiplication'
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-400'
                       : 'border-purple-500/50 text-white hover:bg-purple-500/20 hover:border-purple-400'
                   }`}
                 >
-                  × Vermenigvuldiging
+                  <span className="hidden sm:inline">× Vermenigvuldiging</span>
+                  <span className="sm:hidden">× Vermenigv.</span>
                 </Button>
                 <Button
                   onClick={() => setSelectedOperation('division')}
                   variant={selectedOperation === 'division' ? 'default' : 'outline'}
-                  className={`h-14 text-lg font-bold transition-all ${
+                  className={`h-14 text-sm sm:text-lg font-bold transition-all ${
                     selectedOperation === 'division'
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-400'
                       : 'border-purple-500/50 text-white hover:bg-purple-500/20 hover:border-purple-400'
@@ -107,7 +108,7 @@ export default function ExercisePage() {
                 <Button
                   onClick={() => setSelectedOperation('both')}
                   variant={selectedOperation === 'both' ? 'default' : 'outline'}
-                  className={`h-14 text-lg font-bold transition-all ${
+                  className={`h-14 text-sm sm:text-lg font-bold transition-all ${
                     selectedOperation === 'both'
                       ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border-purple-400'
                       : 'border-purple-500/50 text-white hover:bg-purple-500/20 hover:border-purple-400'

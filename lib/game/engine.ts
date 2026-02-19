@@ -13,6 +13,7 @@ export interface GameConfig {
   timePerQuestion: number; // in seconds
   decreaseTime: boolean; // for parent mode
   operations: OperationType[]; // Which operations to include
+  preGeneratedQuestions?: Question[]; // Optional pre-generated questions for practice mode
 }
 
 export interface GameState {
@@ -26,6 +27,9 @@ export interface GameState {
   userAnswers: (number | null)[];
   combo: number;
   timeLeft: number;
+  timeTaken: (number | null)[]; // Track time taken per question
+  isCorrectAnswers: boolean[]; // Track if each answer was correct
+  questionStartTime: number; // Track when current question started
 }
 
 // Custom tables: 1, 2, 3, 4, 5, 8, and 10
@@ -285,4 +289,100 @@ export function getTimeForQuestion(
   }
   
   return time;
+}
+
+// Adaptive question generation based on user's weak areas
+export interface WeakQuestionData {
+  num1: number;
+  num2: number;
+  operation: 'multiplication' | 'division';
+  accuracy_rate: number;
+  times_incorrect: number;
+}
+
+export function generateAdaptiveQuestions(
+  config: GameConfig,
+  weakQuestions: WeakQuestionData[]
+): Question[] {
+  const { questionCount, operations } = config;
+  const questions: Question[] = [];
+  const usedQuestions = new Set<string>();
+  
+  // If we have weak questions, create a weighted pool
+  if (weakQuestions.length > 0) {
+    const weightedQuestions: Question[] = [];
+    
+    // Add weak questions with high weight based on how poorly they were answered
+    weakQuestions.forEach(wq => {
+      // Calculate weight: lower accuracy = higher weight
+      // Questions with <50% accuracy get 10x weight, 50-75% get 5x, 75-90% get 3x
+      let weight = 1;
+      if (wq.accuracy_rate < 0.5) {
+        weight = 10;
+      } else if (wq.accuracy_rate < 0.75) {
+        weight = 5;
+      } else if (wq.accuracy_rate < 0.9) {
+        weight = 3;
+      }
+      
+      const question: Question = {
+        num1: wq.num1,
+        num2: wq.num2,
+        operation: wq.operation,
+        answer: wq.operation === 'division' ? wq.num1 / wq.num2 : wq.num1 * wq.num2,
+      };
+      
+      // Add this question multiple times based on weight
+      for (let i = 0; i < weight; i++) {
+        weightedQuestions.push(question);
+      }
+    });
+    
+    // Also add some normal questions (30% of total) for variety
+    const normalQuestionCount = Math.floor(questionCount * 0.3);
+    const normalQuestions = generateQuestions({
+      ...config,
+      questionCount: normalQuestionCount * 2, // Generate more to ensure variety
+    });
+    
+    // Shuffle and pick from weighted weak questions (70% of total)
+    const weakQuestionCount = questionCount - normalQuestionCount;
+    const shuffledWeak = shuffleArray(weightedQuestions);
+    
+    // Add weak questions (avoiding duplicates)
+    for (const q of shuffledWeak) {
+      if (questions.length >= weakQuestionCount) break;
+      const key = `${q.num1}${q.operation === 'division' ? '÷' : 'x'}${q.num2}`;
+      if (!usedQuestions.has(key)) {
+        questions.push(q);
+        usedQuestions.add(key);
+      }
+    }
+    
+    // Fill remaining with normal questions
+    for (const q of normalQuestions) {
+      if (questions.length >= questionCount) break;
+      const key = `${q.num1}${q.operation === 'division' ? '÷' : 'x'}${q.num2}`;
+      if (!usedQuestions.has(key)) {
+        questions.push(q);
+        usedQuestions.add(key);
+      }
+    }
+    
+    // If still need more, generate additional questions
+    while (questions.length < questionCount) {
+      const newQ = generateQuestion(config.allowedTables, operations);
+      const key = `${newQ.num1}${newQ.operation === 'division' ? '÷' : 'x'}${newQ.num2}`;
+      if (!usedQuestions.has(key)) {
+        questions.push(newQ);
+        usedQuestions.add(key);
+      }
+    }
+    
+    // Final shuffle to randomize order
+    return shuffleArray(questions);
+  }
+  
+  // If no weak questions data, fall back to normal generation
+  return generateQuestions(config);
 }

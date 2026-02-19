@@ -119,11 +119,18 @@ export default function Home() {
                   Start Spel 🚀
                 </Button>
                 <Button
+                  onClick={() => router.push('/practice')}
+                  variant="outline"
+                  className="w-full border-green-500/50 text-white hover:bg-green-500/20 font-bold text-lg h-14"
+                >
+                  Slimme Oefening 🎯
+                </Button>
+                <Button
                   onClick={() => router.push('/exercise')}
                   variant="outline"
                   className="w-full border-blue-500/50 text-white hover:bg-blue-500/20 font-bold text-lg h-14"
                 >
-                  Oefen Modus 📚
+                  Tafel Oefening 📚
                 </Button>
                 <Button
                   onClick={() => router.push('/leaderboard')}

@@ -33,7 +33,7 @@ function getMedalEmoji(rank: number) {
 
 export default async function LeaderboardPage({ searchParams }: PageProps) {
   const session = await auth();
-  
+
   if (!session?.user) {
     redirect('/auth/signin');
   }
@@ -42,7 +42,7 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
   const leaderboardType = (params.type === 'weekly' ? 'weekly' : 'all-time') as 'all-time' | 'weekly';
 
   // Fetch leaderboard data
-  const data = (leaderboardType === 'weekly' 
+  const data = (leaderboardType === 'weekly'
     ? await getWeeklyLeaderboard()
     : await getLeaderboard(10)) as LeaderboardEntry[];
 
@@ -71,7 +71,7 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
                 {data.map((entry, index) => {
                   const isCurrentUser = entry.name === session.user.name;
                   return (
-                    <LeaderboardEntryWrapper 
+                    <LeaderboardEntryWrapper
                       key={entry.id}
                       index={index}
                       isCurrentUser={isCurrentUser}
@@ -96,8 +96,8 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
                             </div>
                             {/* Mini Streak Chart */}
                             <div className="mt-2">
-                              <MiniStreakChart 
-                                activity={activities[entry.id] || []} 
+                              <MiniStreakChart
+                                activity={activities[entry.id] || []}
                                 days={14}
                               />
                             </div>
