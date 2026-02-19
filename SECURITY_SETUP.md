@@ -18,12 +18,7 @@
 - **Script**: `scripts/detect-secrets.sh`
 - **When to use**: Before major releases, when suspicious
 
-### 3. GitHub Actions (Automatic)
-- **Location**: `.github/workflows/security-scan.yml`
-- **Runs on**: Every push and pull request
-- **Blocks**: PRs that contain secrets
-
-### 4. Enhanced .gitignore
+### 3. Enhanced .gitignore
 - Comprehensive patterns for all secret files
 - Prevents accidental commits of:
   - All .env files
@@ -145,8 +140,7 @@ git commit --no-verify
 rm .husky/pre-commit
 ```
 
-### Update GitHub Actions
-Edit `.github/workflows/security-scan.yml` to add more checks
+### 🛠️ Testing the Security Setup
 
 ## ✅ Verification Checklist
 
@@ -154,14 +148,14 @@ Edit `.github/workflows/security-scan.yml` to add more checks
 - [ ] `npm run security:scan` completes successfully
 - [ ] `.env.local` is in .gitignore
 - [ ] `.env.local` is NOT tracked by git
-- [ ] GitHub Actions workflow is active
+- [ ] GitHub's built-in secret scanning is enabled (check repository settings)
 
 ## 🎯 Key Takeaways
 
 1. **Always use environment variables** - Never hardcode secrets
 2. **Pre-commit hooks run automatically** - They protect you
 3. **Manual scans available** - Run `npm run security:scan` anytime
-4. **GitHub Actions backs you up** - Catches what hooks miss
+4. **GitHub has built-in secret scanning** - Automatically enabled for public repos
 5. **If you leak a secret** - Rotate FIRST, then clean history
 
 ## 📞 Emergency Contacts

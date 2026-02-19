@@ -54,12 +54,13 @@ Run this anytime to scan your codebase:
 4. **Force push to GitHub**
 5. **Verify the secret is gone**
 
-### GitHub Actions
+### GitHub Secret Scanning
 
-Our repository has automated security scanning that runs on every push and PR:
-- Scans for secrets in code
-- Checks for sensitive files
-- Blocks PRs that contain secrets
+GitHub automatically scans repositories for secrets:
+- Enabled by default for public repositories
+- Can be enabled in Settings → Security → Secret scanning for private repos
+- Alerts you when secrets are detected
+- Covers many common secret patterns (API keys, tokens, etc.)
 
 ### Best Practices
 
