@@ -30,6 +30,7 @@ interface GameArenaProps {
 export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps) {
   const [gameState, setGameState] = useState<GameState>(() => {
     const questions = generateQuestions(config);
+    const firstQuestionTime = getTimeForQuestion(0, config.timePerQuestion, config.decreaseTime, questions[0]);
     return {
       questions,
       currentQuestionIndex: 0,
@@ -39,7 +40,7 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
       startTime: Date.now(),
       userAnswers: new Array(questions.length).fill(null),
       combo: 0,
-      timeLeft: config.timePerQuestion,
+      timeLeft: firstQuestionTime,
     };
   });
 
@@ -95,15 +96,18 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
                 };
               }
 
+              const nextQuestionIndex = prev.currentQuestionIndex + 1;
+              const nextQuestion = prev.questions[nextQuestionIndex];
               const nextTime = getTimeForQuestion(
-                prev.currentQuestionIndex + 1,
+                nextQuestionIndex,
                 config.timePerQuestion,
-                config.decreaseTime
+                config.decreaseTime,
+                nextQuestion
               );
 
               return {
                 ...prev,
-                currentQuestionIndex: prev.currentQuestionIndex + 1,
+                currentQuestionIndex: nextQuestionIndex,
                 incorrectAnswers: prev.incorrectAnswers + 1,
                 combo: 0,
                 timeLeft: nextTime,
@@ -177,15 +181,18 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
               };
             }
 
+            const nextQuestionIndex = prev.currentQuestionIndex + 1;
+            const nextQuestion = prev.questions[nextQuestionIndex];
             const nextTime = getTimeForQuestion(
-              prev.currentQuestionIndex + 1,
+              nextQuestionIndex,
               config.timePerQuestion,
-              config.decreaseTime
+              config.decreaseTime,
+              nextQuestion
             );
 
             return {
               ...prev,
-              currentQuestionIndex: prev.currentQuestionIndex + 1,
+              currentQuestionIndex: nextQuestionIndex,
               correctAnswers: prev.correctAnswers + 1,
               combo: newCombo,
               timeLeft: nextTime,
@@ -214,15 +221,18 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
               };
             }
 
+            const nextQuestionIndex = prev.currentQuestionIndex + 1;
+            const nextQuestion = prev.questions[nextQuestionIndex];
             const nextTime = getTimeForQuestion(
-              prev.currentQuestionIndex + 1,
+              nextQuestionIndex,
               config.timePerQuestion,
-              config.decreaseTime
+              config.decreaseTime,
+              nextQuestion
             );
 
             return {
               ...prev,
-              currentQuestionIndex: prev.currentQuestionIndex + 1,
+              currentQuestionIndex: nextQuestionIndex,
               incorrectAnswers: prev.incorrectAnswers + 1,
               combo: 0,
               timeLeft: nextTime,
@@ -314,15 +324,18 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
           };
         }
 
+        const nextQuestionIndex = prev.currentQuestionIndex + 1;
+        const nextQuestion = prev.questions[nextQuestionIndex];
         const nextTime = getTimeForQuestion(
-          prev.currentQuestionIndex + 1,
+          nextQuestionIndex,
           config.timePerQuestion,
-          config.decreaseTime
+          config.decreaseTime,
+          nextQuestion
         );
 
         return {
           ...prev,
-          currentQuestionIndex: prev.currentQuestionIndex + 1,
+          currentQuestionIndex: nextQuestionIndex,
           incorrectAnswers: prev.incorrectAnswers + 1,
           combo: 0,
           timeLeft: nextTime,
@@ -416,7 +429,7 @@ export default function GameArena({ config, onGameEnd, onExit }: GameArenaProps)
                   transition={{ duration: 0.2 }}
                   className="text-4xl sm:text-6xl font-bold text-white mb-2 sm:mb-6"
                 >
-                  {currentQuestion.num1} × {currentQuestion.num2}
+                  {currentQuestion.num1} {currentQuestion.operation === 'division' ? '÷' : '×'} {currentQuestion.num2}
                 </motion.div>
               </AnimatePresence>
               

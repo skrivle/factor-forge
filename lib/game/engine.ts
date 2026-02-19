@@ -1,7 +1,10 @@
+export type OperationType = 'multiplication' | 'division';
+
 export interface Question {
   num1: number;
   num2: number;
   answer: number;
+  operation: OperationType;
 }
 
 export interface GameConfig {
@@ -9,6 +12,7 @@ export interface GameConfig {
   questionCount: number;
   timePerQuestion: number; // in seconds
   decreaseTime: boolean; // for parent mode
+  operations: OperationType[]; // Which operations to include
 }
 
 export interface GameState {
@@ -33,25 +37,45 @@ export const DIFFICULTY_CONFIGS = {
     questionCount: 20,
     timePerQuestion: 60,
     decreaseTime: false,
+    operations: ['multiplication', 'division'] as OperationType[],
   } as GameConfig,
   parent: {
     allowedTables: ALLOWED_TABLES,
     questionCount: 20,
     timePerQuestion: 5,
     decreaseTime: true,
+    operations: ['multiplication', 'division'] as OperationType[],
   } as GameConfig,
 };
 
-export function generateQuestion(allowedTables: number[]): Question {
+export function generateQuestion(allowedTables: number[], operations: OperationType[] = ['multiplication']): Question {
+  // Pick a random operation from allowed operations
+  const operation = operations[Math.floor(Math.random() * operations.length)];
+  
   // Pick any multiplier from 1 to 10 (first number)
-  const num1 = Math.floor(Math.random() * 10) + 1;
+  const multiplier = Math.floor(Math.random() * 10) + 1;
   // Pick a random table from allowed tables (second number)
-  const num2 = allowedTables[Math.floor(Math.random() * allowedTables.length)];
-  return {
-    num1,
-    num2,
-    answer: num1 * num2,
-  };
+  const table = allowedTables[Math.floor(Math.random() * allowedTables.length)];
+  
+  if (operation === 'division') {
+    // For division: result ÷ table = multiplier
+    // Example: 3 × 8 = 24 becomes 24 ÷ 8 = 3
+    const result = multiplier * table;
+    return {
+      num1: result,
+      num2: table,
+      answer: multiplier,
+      operation: 'division',
+    };
+  } else {
+    // Multiplication: multiplier × table = result
+    return {
+      num1: multiplier,
+      num2: table,
+      answer: multiplier * table,
+      operation: 'multiplication',
+    };
+  }
 }
 
 // Helper function to shuffle an array using Fisher-Yates algorithm
@@ -65,37 +89,75 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export function generateQuestions(config: GameConfig): Question[] {
-  const { allowedTables, questionCount } = config;
+  const { allowedTables, questionCount, operations } = config;
   const questions: Question[] = [];
   const usedQuestions = new Set<string>();
   
   // Define weights for each table (lower weight = less frequent)
-  // Tables 1, 2, 10 get weight of 1, others get weight of 3
+  // Tables 1, 2, 10 get very low weight, others get much higher weight
   const tableWeights: Record<number, number> = {
-    1: 1,
+    1: 0.5,
     2: 1,
-    3: 3,
-    4: 3,
-    5: 3,
-    8: 3,
-    10: 1,
+    3: 5,
+    4: 5,
+    5: 5,
+    8: 5,
+    10: 0.5,
+  };
+  
+  // Define weights for multipliers (the first number)
+  // 1, 2, 10 get very low weight, others get higher weight
+  const multiplierWeights: Record<number, number> = {
+    1: 0.5,
+    2: 1,
+    3: 5,
+    4: 5,
+    5: 5,
+    6: 5,
+    7: 5,
+    8: 5,
+    9: 5,
+    10: 0.5,
   };
   
   // Create a weighted pool of questions
-  // Each question appears multiple times based on its table's weight
+  // Each question appears multiple times based on both table and multiplier weights
   const weightedQuestions: Question[] = [];
   
   for (let multiplier = 1; multiplier <= 10; multiplier++) {
     for (const table of allowedTables) {
-      const weight = tableWeights[table] || 1;
-      const question = {
-        num1: multiplier,
-        num2: table,
-        answer: multiplier * table,
-      };
-      // Add the question 'weight' times to increase its probability
-      for (let i = 0; i < weight; i++) {
-        weightedQuestions.push(question);
+      // Combine both weights (multiply them together)
+      const tableWeight = tableWeights[table] || 1;
+      const multiplierWeight = multiplierWeights[multiplier] || 1;
+      const combinedWeight = Math.round(tableWeight * multiplierWeight);
+      
+      // For each operation type, create questions
+      for (const operation of operations) {
+        let question: Question;
+        
+        if (operation === 'division') {
+          // Division: result ÷ table = multiplier
+          const result = multiplier * table;
+          question = {
+            num1: result,
+            num2: table,
+            answer: multiplier,
+            operation: 'division',
+          };
+        } else {
+          // Multiplication: multiplier × table = result
+          question = {
+            num1: multiplier,
+            num2: table,
+            answer: multiplier * table,
+            operation: 'multiplication',
+          };
+        }
+        
+        // Add the question 'combinedWeight' times to increase its probability
+        for (let i = 0; i < combinedWeight; i++) {
+          weightedQuestions.push(question);
+        }
       }
     }
   }
@@ -107,7 +169,7 @@ export function generateQuestions(config: GameConfig): Question[] {
   for (const question of shuffledWeighted) {
     if (questions.length >= questionCount) break;
     
-    const key = `${question.num1}x${question.num2}`;
+    const key = `${question.num1}${question.operation === 'division' ? '÷' : 'x'}${question.num2}`;
     if (!usedQuestions.has(key)) {
       questions.push(question);
       usedQuestions.add(key);
@@ -122,29 +184,59 @@ export function generateQuestions(config: GameConfig): Question[] {
   while (questions.length < questionCount && attempts < maxAttempts) {
     attempts++;
     
+    // Select operation
+    const operation = operations[Math.floor(Math.random() * operations.length)];
+    
     // Select table with weighted probability
-    const totalWeight = allowedTables.reduce((sum, t) => sum + (tableWeights[t] || 1), 0);
-    let random = Math.random() * totalWeight;
+    const totalTableWeight = allowedTables.reduce((sum, t) => sum + (tableWeights[t] || 1), 0);
+    let randomTable = Math.random() * totalTableWeight;
     let selectedTable = allowedTables[0];
     
     for (const table of allowedTables) {
-      random -= (tableWeights[table] || 1);
-      if (random <= 0) {
+      randomTable -= (tableWeights[table] || 1);
+      if (randomTable <= 0) {
         selectedTable = table;
         break;
       }
     }
     
-    const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = selectedTable;
-    const key = `${num1}x${num2}`;
+    // Select multiplier with weighted probability
+    const allMultipliers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const totalMultiplierWeight = allMultipliers.reduce((sum, m) => sum + (multiplierWeights[m] || 1), 0);
+    let randomMultiplier = Math.random() * totalMultiplierWeight;
+    let selectedMultiplier = 1;
+    
+    for (const multiplier of allMultipliers) {
+      randomMultiplier -= (multiplierWeights[multiplier] || 1);
+      if (randomMultiplier <= 0) {
+        selectedMultiplier = multiplier;
+        break;
+      }
+    }
+    
+    let question: Question;
+    const key = operation === 'division' 
+      ? `${selectedMultiplier * selectedTable}÷${selectedTable}`
+      : `${selectedMultiplier}x${selectedTable}`;
     
     if (!usedQuestions.has(key)) {
-      questions.push({
-        num1,
-        num2,
-        answer: num1 * num2,
-      });
+      if (operation === 'division') {
+        const result = selectedMultiplier * selectedTable;
+        question = {
+          num1: result,
+          num2: selectedTable,
+          answer: selectedMultiplier,
+          operation: 'division',
+        };
+      } else {
+        question = {
+          num1: selectedMultiplier,
+          num2: selectedTable,
+          answer: selectedMultiplier * selectedTable,
+          operation: 'multiplication',
+        };
+      }
+      questions.push(question);
       usedQuestions.add(key);
     }
   }
@@ -171,11 +263,26 @@ export function calculateScore(
 export function getTimeForQuestion(
   questionIndex: number,
   baseTime: number,
-  decreaseTime: boolean
+  decreaseTime: boolean,
+  question?: Question
 ): number {
-  if (!decreaseTime) return baseTime;
+  let time = baseTime;
   
-  // Decrease time by 0.2 seconds per question, minimum 2 seconds
-  const decrease = questionIndex * 0.2;
-  return Math.max(2, baseTime - decrease);
+  if (decreaseTime) {
+    // Decrease time by 0.2 seconds per question, minimum 2 seconds
+    const decrease = questionIndex * 0.2;
+    time = Math.max(2, baseTime - decrease);
+  }
+  
+  // Add extra time for multi-digit answers
+  if (question) {
+    const answerLength = question.answer.toString().length;
+    if (answerLength === 2) {
+      time += 1.5; // Add 1.5 seconds for 2-digit answers
+    } else if (answerLength >= 3) {
+      time += 2.5; // Add 2.5 seconds for 3+ digit answers
+    }
+  }
+  
+  return time;
 }

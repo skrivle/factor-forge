@@ -147,8 +147,9 @@ export default function GamePage() {
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-6">
                 <h3 className="text-xl font-bold text-white mb-4">Spelregels</h3>
                 <ul className="space-y-2 text-gray-300">
-                  <li>✅ {config.questionCount} vermenigvuldigingsvragen</li>
+                  <li>✅ {config.questionCount} rekenopgaven</li>
                   <li>🔢 Tafels: 1, 2, 3, 4, 5, 8 en 10</li>
+                  <li>➗ Vermenigvuldiging en deling</li>
                   <li>⏱️ {config.timePerQuestion} seconden per vraag{config.decreaseTime && ' (afnemend!)'}</li>
                   <li>🎯 Typ je antwoord - je hoeft niet op Enter te drukken!</li>
                   <li>🔥 Maak combo's voor bonuspunten!</li>
