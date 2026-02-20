@@ -133,6 +133,13 @@ export default function Home() {
                   Tafel Oefening 📚
                 </Button>
                 <Button
+                  onClick={() => router.push('/stats')}
+                  variant="outline"
+                  className="w-full border-cyan-500/50 text-white hover:bg-cyan-500/20 font-bold text-lg h-14"
+                >
+                  Jouw Voortgang 📊
+                </Button>
+                <Button
                   onClick={() => router.push('/leaderboard')}
                   variant="outline"
                   className="w-full border-purple-500/50 text-white hover:bg-purple-500/20 font-bold text-lg h-14"
