@@ -60,7 +60,7 @@ openssl rand -base64 32
 
 **Automated Setup (Recommended):**
 
-The project uses an automated migration system. Just start the dev server and migrations will run automatically:
+The project uses Drizzle ORM with automated migrations. Just start the dev server:
 
 ```bash
 npm run dev
@@ -68,17 +68,13 @@ npm run dev
 
 Migrations run automatically and set up all required tables!
 
-**Manual Setup (Legacy):**
-
-1. Create a Neon database (Vercel Postgres is deprecated)
-2. Copy the connection string to your `.env.local` as `POSTGRES_URL`
-3. Run migrations manually:
+**Manual Migration (if needed):**
 
 ```bash
 npm run db:migrate
 ```
 
-**See `MIGRATIONS.md` for complete documentation on the migration system.**
+See `MIGRATIONS.md` for complete documentation on the migration system.
 
 ### 4. Create Your First User
 
@@ -124,14 +120,15 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with a user name
 │   └── ui/               # Shadcn UI components
 ├── lib/
 │   ├── db/               # Database utilities
+│   │   ├── schema.ts     # Drizzle schema definition
 │   │   ├── client.ts     # Database client & types
 │   │   └── queries.ts    # Database queries
 │   ├── game/             # Game logic
 │   │   ├── engine.ts     # Game engine & question generation
 │   │   └── sounds.ts     # Sound effects
 │   └── auth.ts           # NextAuth configuration
-├── db/
-│   └── schema.sql        # Database schema
+├── drizzle/
+│   └── *.sql             # Database migration files
 └── types/
     └── next-auth.d.ts    # NextAuth type extensions
 ```
@@ -157,9 +154,8 @@ Open [http://localhost:3000](http://localhost:3000) and sign in with a user name
 1. Push your code to GitHub
 2. Import the project in Vercel
 3. Add environment variables in Vercel dashboard
-4. Set up Neon database (recommended) or Vercel Postgres
-5. Run the schema SQL in your database
-6. Deploy!
+4. Set up Neon database (recommended)
+5. Deploy! (Migrations run automatically during build)
 
 ### Database Setup on Vercel
 

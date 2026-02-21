@@ -1,128 +1,235 @@
 # Local Development Setup Guide
 
-## ✅ Setup Complete!
+## Prerequisites
 
-Your local development environment is now configured to connect to the Neon PostgreSQL database.
+- Node.js 20+ installed
+- npm or yarn
+- PostgreSQL database (recommended: Neon)
 
-### Database Connection Details
+## Setup Steps
 
-- **Status**: ✅ Connected
-- **Host**: `ep-divine-math-ainzz4yj-pooler.c-4.us-east-1.aws.neon.tech`
-- **Database**: `neondb`
-- **Schema**: ✅ All tables created
-- **Users**: 3 existing users
+### 1. Install Dependencies
 
-### Configuration Files
-
-#### `.env.local`
-Your environment variables are configured in `.env.local`:
-```
-NEXTAUTH_SECRET=<your-nextauth-secret>
-NEXTAUTH_URL=http://localhost:3000
-POSTGRES_URL=<your-postgres-connection-string>
-```
-
-**⚠️ SECURITY NOTE:** These are example placeholders. Never commit actual secrets to git!
-
-### Available Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start the development server (runs migrations first) |
-| `npm run build` | Build the production application (runs migrations first) |
-| `npm run start` | Start the production server |
-| `npm run db:verify` | Verify database connection and schema |
-| `npm run db:migrate` | Manually run pending migrations |
-| `npm run db:migrate:status` | Show migration status |
-| `npm run db:create-migration <name>` | Create a new migration file |
-| `npm run lint` | Run the linter |
-
-### Getting Started
-
-1. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-   
-   Note: Migrations run automatically before the dev server starts!
-
-2. **Open your browser:**
-   Navigate to http://localhost:3000
-
-3. **Login:**
-   Use one of the 3 existing users in the database, or create a new user through the UI.
-
-### Database Migrations
-
-This project uses an **automated migration system**:
-
-- ✅ Migrations run automatically on `npm run dev`
-- ✅ Migrations run automatically during `npm run build` (production)
-- ✅ All migrations are tracked to prevent duplicates
-- ✅ See `MIGRATIONS.md` for detailed documentation
-
-To check migration status at any time:
 ```bash
-npm run db:migrate:status
+npm install
 ```
 
-### Database Schema
+### 2. Set Up Environment Variables
 
-Your database has the following tables:
+Create a `.env.local` file in the root directory:
 
-- `users` - User accounts with name, PIN, and role (parent/child)
-- `sessions` - Game session records with scores and accuracy
-- `user_stats` - User statistics including best scores
-- `question_stats` - Individual question performance for adaptive learning
-- `user_weak_questions` - View showing questions users struggle with
+```env
+NEXTAUTH_SECRET=your-secret-key-here
+NEXTAUTH_URL=http://localhost:3000
+POSTGRES_URL=your-postgres-connection-string
+```
 
-### Verify Database Connection
+**Generate NEXTAUTH_SECRET:**
+```bash
+openssl rand -base64 32
+```
 
-At any time, you can verify your database connection:
+**Get POSTGRES_URL:**
+1. Go to [Neon Console](https://console.neon.tech/)
+2. Create a new project
+3. Copy the connection string
+
+⚠️ **SECURITY NOTE:** Never commit `.env.local` to git!
+
+### 3. Set Up Database
+
+The project uses **Drizzle ORM** with automated migrations.
+
+#### Automatic Setup (Recommended)
+
+Just start the dev server - migrations run automatically:
+
+```bash
+npm run dev
+```
+
+Migrations will:
+- Create all required tables
+- Set up indexes and relationships
+- Track applied migrations
+
+#### Manual Migration (if needed)
+
+```bash
+npm run db:migrate
+```
+
+### 4. Verify Database Connection
 
 ```bash
 npm run db:verify
 ```
 
-This will:
-- Test the connection to Neon
-- List all tables in the database
-- Show current user count
-- Identify any missing tables
+This checks:
+- Database connection is working
+- All required tables exist
+- Shows current user count
 
-### Troubleshooting
+### 5. Create Users
 
-#### Connection Issues
+#### Option A: Manual SQL Insert
 
-If you encounter connection issues:
+Connect to your database and run:
 
-1. Check that `.env.local` contains the correct `POSTGRES_URL`
-2. Verify the database is accessible from your network
-3. Run `npm run db:verify` to get detailed error messages
+```sql
+-- Create users
+INSERT INTO users (name, pin, role)
+VALUES 
+  ('Dad', '1234', 'parent'),
+  ('Mom', '5678', 'parent'),
+  ('Alice', '1111', 'child'),
+  ('Bob', '2222', 'child');
 
-#### Missing Tables
+-- Create user stats records
+INSERT INTO user_stats (user_id)
+SELECT id FROM users;
+```
 
-If tables are missing, you can recreate the schema:
+#### Option B: Use Database Console
 
-1. Visit [Neon Console](https://console.neon.tech/)
-2. Navigate to your project's SQL Editor
-3. Run the following SQL files in order:
-   - `db/schema.sql`
-   - `db/migrations/003_add_question_stats.sql`
+1. Go to your Neon Console
+2. Open SQL Editor
+3. Run the SQL above
 
-### Development Tips
+### 6. Start Development Server
 
-- The app uses NextAuth for authentication
-- Database queries are in `lib/db/queries.ts`
-- Database client is in `lib/db/client.ts`
-- The app uses Neon's serverless driver (`@neondatabase/serverless`)
+```bash
+npm run dev
+```
 
-### Next Steps
+Open [http://localhost:3000](http://localhost:3000) and sign in!
 
-- Start coding! The environment is ready.
-- Check `ADAPTIVE_LEARNING.md` for information about the adaptive learning system
-- See `DEPLOYMENT.md` for deployment instructions
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server (runs migrations first) |
+| `npm run build` | Build for production (runs migrations first) |
+| `npm run start` | Start production server |
+| `npm run db:verify` | Verify database connection |
+| `npm run db:migrate` | Run pending migrations |
+| `npm run db:migrate:status` | Show migration status |
+| `npm run db:create-migration` | Generate migration from schema changes |
+| `npm run lint` | Run the linter |
+
+## Database Information
+
+### Schema Definition
+
+The database schema is defined in TypeScript at `lib/db/schema.ts` using Drizzle ORM.
+
+### Tables
+
+- `users` - User accounts with name, PIN, and role
+- `groups` - User groups for organizing family members
+- `sessions` - Game session records with scores
+- `user_stats` - User statistics and achievements
+- `question_stats` - Question-level performance tracking
+- `tests` - Saved test configurations
+- `test_attempts` - Test attempt records
+
+### Migrations
+
+Migrations are in the `drizzle/` folder and managed by Drizzle Kit. See `MIGRATIONS.md` for details.
+
+## Development Workflow
+
+### Making Schema Changes
+
+1. Edit `lib/db/schema.ts`
+2. Generate migration: `npm run db:create-migration`
+3. Review generated SQL in `drizzle/`
+4. Restart dev server (migration applies automatically)
+
+### Checking Migration Status
+
+```bash
+npm run db:migrate:status
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+If you encounter database connection issues:
+
+1. Check `.env.local` has correct `POSTGRES_URL`
+2. Verify database is accessible
+3. Run `npm run db:verify` for detailed diagnostics
+
+### Migration Issues
+
+If migrations fail:
+
+1. Check error message in console
+2. Verify database connection
+3. Check `drizzle/` folder for migration files
+4. See `MIGRATIONS.md` for detailed troubleshooting
+
+### TypeScript Errors
+
+If you see type errors:
+
+```bash
+npm run lint
+```
+
+Fix any errors and restart the dev server.
+
+### Port Already in Use
+
+If port 3000 is busy:
+
+```bash
+# Kill process on port 3000
+npx kill-port 3000
+
+# Or use a different port
+PORT=3001 npm run dev
+```
+
+## Project Structure
+
+```
+math-app/
+├── app/                  # Next.js app directory
+│   ├── api/             # API routes
+│   ├── game/            # Game pages
+│   └── ...
+├── components/          # React components
+├── lib/
+│   ├── db/
+│   │   ├── schema.ts    # Drizzle schema definition
+│   │   ├── client.ts    # Database client
+│   │   └── queries.ts   # Database queries
+│   └── game/            # Game logic
+├── drizzle/             # Migration files
+│   ├── 0000_*.sql
+│   └── meta/
+├── .env.local          # Environment variables (gitignored)
+└── drizzle.config.ts   # Drizzle configuration
+```
+
+## Development Tips
+
+- Database queries use Drizzle ORM for type safety
+- Schema changes require migration generation
+- Hot reload works for most changes
+- Check browser console for client-side errors
+- Check terminal for server-side errors
+
+## Next Steps
+
+- Explore the codebase
+- Read `MIGRATIONS.md` for database changes
+- Check `ADAPTIVE_LEARNING.md` for AI features
+- See `DEPLOYMENT.md` for production deployment
 
 ---
 
-**Need help?** Run `npm run db:verify` to check your database status.
+**Need help?** Run `npm run db:verify` to check your setup.

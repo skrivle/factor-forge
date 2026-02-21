@@ -1,5 +1,5 @@
 import { sql } from './client';
-import type { User, GameSession, UserStats, QuestionStat, WeakQuestion } from './client';
+import type { User, GameSession, UserStats, QuestionStat, WeakQuestion, Group, Test, TestAttempt } from './client';
 import { getTodayString, toLocalDateString, daysDiff } from '@/lib/date-utils';
 import type { Question } from '@/lib/game/engine';
 
@@ -147,20 +147,38 @@ export async function calculateStreak(userId: string): Promise<number> {
   return streak;
 }
 
-// Leaderboard queries
-export async function getLeaderboard(limit: number = 10) {
-  const result = await sql`
-    SELECT 
-      u.id,
-      u.name,
-      u.role,
-      COALESCE(s.best_score, 0) as best_score,
-      COALESCE(s.total_correct_answers, 0) as total_correct_answers
-    FROM users u
-    LEFT JOIN user_stats s ON u.id = s.user_id
-    ORDER BY s.best_score DESC NULLS LAST, s.total_correct_answers DESC NULLS LAST
-    LIMIT ${limit}
-  `;
+// Leaderboard queries (can be filtered by group)
+export async function getLeaderboard(limit: number = 10, groupId?: string | null) {
+  let result;
+  
+  if (groupId) {
+    result = await sql`
+      SELECT 
+        u.id,
+        u.name,
+        u.role,
+        COALESCE(s.best_score, 0) as best_score,
+        COALESCE(s.total_correct_answers, 0) as total_correct_answers
+      FROM users u
+      LEFT JOIN user_stats s ON u.id = s.user_id
+      WHERE u.group_id = ${groupId}
+      ORDER BY s.best_score DESC NULLS LAST, s.total_correct_answers DESC NULLS LAST
+      LIMIT ${limit}
+    `;
+  } else {
+    result = await sql`
+      SELECT 
+        u.id,
+        u.name,
+        u.role,
+        COALESCE(s.best_score, 0) as best_score,
+        COALESCE(s.total_correct_answers, 0) as total_correct_answers
+      FROM users u
+      LEFT JOIN user_stats s ON u.id = s.user_id
+      ORDER BY s.best_score DESC NULLS LAST, s.total_correct_answers DESC NULLS LAST
+      LIMIT ${limit}
+    `;
+  }
   
   // Calculate streaks for each user
   const withStreaks = await Promise.all(
@@ -173,22 +191,44 @@ export async function getLeaderboard(limit: number = 10) {
   return withStreaks;
 }
 
-export async function getWeeklyLeaderboard() {
-  const result = await sql`
-    SELECT 
-      u.id,
-      u.name,
-      u.role,
-      SUM(sess.score) as weekly_score,
-      COUNT(sess.id) as games_played,
-      AVG(sess.accuracy) as avg_accuracy
-    FROM users u
-    LEFT JOIN sessions sess ON u.id = sess.user_id
-      AND sess.completed_at >= NOW() - INTERVAL '7 days'
-    GROUP BY u.id, u.name, u.role
-    ORDER BY weekly_score DESC NULLS LAST
-    LIMIT 10
-  `;
+export async function getWeeklyLeaderboard(groupId?: string | null) {
+  let result;
+  
+  if (groupId) {
+    result = await sql`
+      SELECT 
+        u.id,
+        u.name,
+        u.role,
+        SUM(sess.score) as weekly_score,
+        COUNT(sess.id) as games_played,
+        AVG(sess.accuracy) as avg_accuracy
+      FROM users u
+      LEFT JOIN sessions sess ON u.id = sess.user_id
+        AND sess.completed_at >= NOW() - INTERVAL '7 days'
+      WHERE u.group_id = ${groupId}
+      GROUP BY u.id, u.name, u.role
+      ORDER BY weekly_score DESC NULLS LAST
+      LIMIT 10
+    `;
+  } else {
+    result = await sql`
+      SELECT 
+        u.id,
+        u.name,
+        u.role,
+        SUM(sess.score) as weekly_score,
+        COUNT(sess.id) as games_played,
+        AVG(sess.accuracy) as avg_accuracy
+      FROM users u
+      LEFT JOIN sessions sess ON u.id = sess.user_id
+        AND sess.completed_at >= NOW() - INTERVAL '7 days'
+      GROUP BY u.id, u.name, u.role
+      ORDER BY weekly_score DESC NULLS LAST
+      LIMIT 10
+    `;
+  }
+  
   return result;
 }
 
@@ -313,4 +353,182 @@ export async function getQuestionStats(
     times_incorrect: parseInt(row.times_incorrect),
     accuracy_rate: parseFloat(row.accuracy_rate),
   };
+}
+
+// Group queries
+export async function createGroup(name: string) {
+  const result = await sql`
+    INSERT INTO groups (name)
+    VALUES (${name})
+    RETURNING *
+  `;
+  return result[0] as Group;
+}
+
+export async function getGroup(groupId: string) {
+  const result = await sql`
+    SELECT * FROM groups WHERE id = ${groupId}
+  `;
+  return result[0] as Group | undefined;
+}
+
+export async function addUserToGroup(userId: string, groupId: string) {
+  await sql`
+    UPDATE users
+    SET group_id = ${groupId}
+    WHERE id = ${userId}
+  `;
+}
+
+export async function getGroupMembers(groupId: string) {
+  const result = await sql`
+    SELECT id, name, role, created_at
+    FROM users
+    WHERE group_id = ${groupId}
+    ORDER BY role DESC, name ASC
+  `;
+  return result as Omit<User, 'pin' | 'group_id'>[];
+}
+
+// Test queries
+export async function createTest(
+  groupId: string,
+  createdBy: string,
+  title: string,
+  questionCount: number,
+  tablesIncluded: number[],
+  includeDivision: boolean,
+  timeLimitSeconds: number | null = null,
+  description: string | null = null
+) {
+  const result = await sql`
+    INSERT INTO tests (
+      group_id, created_by, title, description, question_count, 
+      time_limit_seconds, tables_included, include_division
+    )
+    VALUES (
+      ${groupId}, ${createdBy}, ${title}, ${description}, ${questionCount},
+      ${timeLimitSeconds}, ${tablesIncluded}, ${includeDivision}
+    )
+    RETURNING *
+  `;
+  return result[0] as Test;
+}
+
+export async function getTest(testId: string) {
+  const result = await sql`
+    SELECT * FROM tests WHERE id = ${testId}
+  `;
+  return result[0] as Test | undefined;
+}
+
+export async function getGroupTests(groupId: string) {
+  const result = await sql`
+    SELECT 
+      t.*,
+      u.name as creator_name
+    FROM tests t
+    JOIN users u ON t.created_by = u.id
+    WHERE t.group_id = ${groupId}
+    ORDER BY t.created_at DESC
+  `;
+  return result as (Test & { creator_name: string })[];
+}
+
+export async function deleteTest(testId: string) {
+  await sql`
+    DELETE FROM tests WHERE id = ${testId}
+  `;
+}
+
+// Test attempt queries
+export async function createTestAttempt(
+  testId: string,
+  userId: string,
+  totalQuestions: number
+) {
+  const result = await sql`
+    INSERT INTO test_attempts (
+      test_id, user_id, score, total_questions, accuracy, 
+      questions, status, started_at
+    )
+    VALUES (
+      ${testId}, ${userId}, 0, ${totalQuestions}, 0, 
+      '[]'::jsonb, 'in_progress', NOW()
+    )
+    RETURNING *
+  `;
+  return result[0] as TestAttempt;
+}
+
+export async function getTestAttempt(attemptId: string) {
+  const result = await sql`
+    SELECT * FROM test_attempts WHERE id = ${attemptId}
+  `;
+  return result[0] as TestAttempt | undefined;
+}
+
+export async function getUserTestAttempt(testId: string, userId: string) {
+  const result = await sql`
+    SELECT * FROM test_attempts 
+    WHERE test_id = ${testId} AND user_id = ${userId}
+    ORDER BY completed_at DESC NULLS FIRST
+    LIMIT 1
+  `;
+  return result[0] as TestAttempt | undefined;
+}
+
+export async function completeTestAttempt(
+  attemptId: string,
+  score: number,
+  accuracy: number,
+  timeTakenSeconds: number | null,
+  questions: any
+) {
+  const result = await sql`
+    UPDATE test_attempts
+    SET 
+      score = ${score},
+      accuracy = ${accuracy},
+      time_taken_seconds = ${timeTakenSeconds},
+      questions = ${JSON.stringify(questions)}::jsonb,
+      status = 'completed',
+      completed_at = NOW()
+    WHERE id = ${attemptId}
+    RETURNING *
+  `;
+  return result[0] as TestAttempt;
+}
+
+export async function getTestAttempts(testId: string) {
+  const result = await sql`
+    SELECT 
+      ta.*,
+      u.name as user_name,
+      u.role as user_role
+    FROM test_attempts ta
+    JOIN users u ON ta.user_id = u.id
+    WHERE ta.test_id = ${testId}
+    ORDER BY ta.completed_at DESC NULLS FIRST, ta.started_at DESC
+  `;
+  return result as (TestAttempt & { user_name: string; user_role: string })[];
+}
+
+export async function getUserTestAttempts(userId: string) {
+  const result = await sql`
+    SELECT 
+      ta.*,
+      t.title as test_title,
+      t.question_count,
+      t.time_limit_seconds
+    FROM test_attempts ta
+    JOIN tests t ON ta.test_id = t.id
+    WHERE ta.user_id = ${userId}
+    ORDER BY ta.completed_at DESC NULLS FIRST, ta.started_at DESC
+  `;
+  return result as (TestAttempt & { 
+    test_title: string; 
+    question_count: number; 
+    time_limit_seconds: number | null 
+  })[];
 }

@@ -62,7 +62,8 @@ Aggregates question statistics to identify weak areas per user.
 ## Files Modified/Created
 
 ### Database
-- `db/migrations/003_add_question_stats.sql` - Schema for question tracking
+- Question tracking tables defined in `lib/db/schema.ts`
+- Migrations managed by Drizzle ORM in `drizzle/` folder
 
 ### Type Definitions
 - `lib/db/client.ts` - Added QuestionStat and WeakQuestion types
@@ -145,10 +146,16 @@ Located in `lib/game/engine.ts`:
 
 ## Testing the Feature
 
-1. **Setup Database**
+1. **Database Setup**
+   
+   Migrations run automatically! Just start your dev server:
    ```bash
-   # Run the migration
-   psql $POSTGRES_URL -f db/migrations/003_add_question_stats.sql
+   npm run dev
+   ```
+   
+   Or manually run migrations:
+   ```bash
+   npm run db:migrate
    ```
 
 2. **Play Regular Games**

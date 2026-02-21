@@ -119,6 +119,13 @@ export default function Home() {
                   Start Spel 🚀
                 </Button>
                 <Button
+                  onClick={() => router.push('/tests')}
+                  variant="outline"
+                  className="w-full border-yellow-500/50 text-white hover:bg-yellow-500/20 font-bold text-lg h-14"
+                >
+                  Tests 📝
+                </Button>
+                <Button
                   onClick={() => router.push('/practice')}
                   variant="outline"
                   className="w-full border-green-500/50 text-white hover:bg-green-500/20 font-bold text-lg h-14"

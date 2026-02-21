@@ -46,11 +46,11 @@ async function verifyConnection() {
     `;
 
     if (tables.length === 0) {
-      console.log('⚠️  No tables found. You need to run the schema setup.');
-      console.log('\nTo set up the database schema:');
-      console.log('  1. cat db/schema.sql');
-      console.log('  2. cat db/migrations/003_add_question_stats.sql');
-      console.log('  3. Execute both in your Neon SQL Editor (https://console.neon.tech/)\n');
+      console.log('⚠️  No tables found. You need to run migrations.');
+      console.log('\nTo set up the database:');
+      console.log('  1. Run: npm run db:migrate');
+      console.log('  2. Or start the dev server: npm run dev');
+      console.log('  3. Migrations will run automatically\n');
       return;
     }
 

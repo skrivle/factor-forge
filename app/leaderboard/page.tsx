@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { getLeaderboard, getWeeklyLeaderboard, getUserActivities } from '@/lib/db/queries';
+import { sql } from '@/lib/db/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import ActivityHeatmap from '@/components/ActivityHeatmap';
 import TabSwitcher from '@/components/TabSwitcher';
@@ -41,10 +42,17 @@ export default async function LeaderboardPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const leaderboardType = (params.type === 'weekly' ? 'weekly' : 'all-time') as 'all-time' | 'weekly';
 
-  // Fetch leaderboard data
+  // Get user's group_id
+  const userId = (session.user as any).id;
+  const userResult = await sql`
+    SELECT group_id FROM users WHERE id = ${userId}
+  `;
+  const groupId = userResult[0]?.group_id || null;
+
+  // Fetch leaderboard data (filtered by group if user has one)
   const data = (leaderboardType === 'weekly'
-    ? await getWeeklyLeaderboard()
-    : await getLeaderboard(10)) as LeaderboardEntry[];
+    ? await getWeeklyLeaderboard(groupId)
+    : await getLeaderboard(10, groupId)) as LeaderboardEntry[];
 
   // Fetch activities for all users in the leaderboard
   const userIds = data.map((entry) => entry.id);

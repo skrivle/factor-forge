@@ -17,16 +17,21 @@
 3. Once created, go to **Dashboard** → **Connection Details**
 4. Copy the connection string (it looks like: `postgresql://user:pass@host/dbname`)
 
-#### Step 2: Run Database Schema
+#### Step 2: Set Up Database
 
-**NOTE:** If you're using the automated migration system (recommended), you can skip this step! Migrations will run automatically during deployment.
+**Automatic Setup (Recommended):**
 
-**Manual Setup (Legacy):**
+Migrations run automatically during Vercel deployment! Just deploy and the database will be set up.
+
+**Manual Verification (Optional):**
 
 1. In Neon Console, click **SQL Editor**
-2. Copy the contents of `db/quickstart.sql` 
-3. Paste and run it in the SQL Editor
-4. Verify: You should see 4 users created
+2. Run a simple query to verify:
+   ```sql
+   SELECT * FROM users LIMIT 1;
+   ```
+
+After your first deployment, migrations will have created all tables automatically.
 
 #### Step 3: Deploy to Vercel
 
@@ -75,7 +80,7 @@ Or use: https://generate-secret.vercel.app/32
    - Alice (PIN: 1111)
    - Bob (PIN: 2222)
 
-**Note:** The build process includes automatic database migrations. Check the build logs to see migration status.
+**Note:** The build process includes automatic database migrations via Drizzle ORM. Check the build logs to see migration status.
 
 ## Alternative: Deploy with Vercel CLI
 
@@ -102,27 +107,20 @@ vercel --prod
 
 ### Database Migrations
 
-This project uses an **automated migration system**:
+This project uses **Drizzle ORM** with an automated migration system:
 
 - ✅ Migrations run automatically during Vercel builds
-- ✅ Check migration status: `https://your-app.vercel.app/api/migrate?status=true`
-- ✅ Manually trigger migrations (in production):
-  ```bash
-  curl -X POST https://your-app.vercel.app/api/migrate \
-    -H "Authorization: Bearer YOUR_MIGRATION_SECRET"
-  ```
+- ✅ Schema is defined in `lib/db/schema.ts`
+- ✅ Migration files are in `drizzle/` folder
+- ✅ See `MIGRATIONS.md` for complete documentation
 
-**Setting up the Migration API (Optional):**
+**Verify migrations ran successfully:**
 
-For production security, set `MIGRATION_SECRET` in your Vercel environment variables:
-```bash
-vercel env add MIGRATION_SECRET
-# Enter a secure random string
+Check your Vercel deployment logs for migration output. You should see:
 ```
-
-Then you can trigger migrations manually via API using that secret.
-
-**See `MIGRATIONS.md` for complete documentation.**
+Running database migrations...
+✓ Migrations applied successfully
+```
 
 ### Custom Domain
 

@@ -37,9 +37,10 @@ else
 fi
 
 echo "📋 Next Steps:"
-echo "1. Add your database connection strings to .env.local"
-echo "2. Run the schema: cat db/schema.sql (then execute in your database)"
-echo "3. Create your first users in the database"
-echo "4. Run: npm run dev"
+echo "1. Add your database connection string to .env.local (POSTGRES_URL)"
+echo "2. Run: npm run dev (migrations will run automatically)"
+echo "3. Create your first users via SQL in your database console"
+echo ""
+echo "For detailed setup instructions, see DEV_SETUP.md"
 echo ""
 echo "🚀 Happy coding!"

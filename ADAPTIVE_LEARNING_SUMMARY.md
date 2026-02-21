@@ -30,9 +30,14 @@ Your math app now tracks which questions users answer incorrectly and creates pe
 ./scripts/migrate-adaptive-learning.sh
 ```
 
-Or manually:
+Migrations run automatically! Just:
 ```bash
-psql $POSTGRES_URL -f db/migrations/003_add_question_stats.sql
+npm run dev
+```
+
+Or manually run migrations:
+```bash
+npm run db:migrate
 ```
 
 ### Step 2: Start Your App
@@ -82,11 +87,12 @@ New button added:
 
 ## 📁 Files Modified
 
-### New Files (7)
-1. `db/migrations/003_add_question_stats.sql` - Database schema
+### New Files (5)
+1. Database schema defined in `lib/db/schema.ts` (question tracking tables)
 2. `app/practice/page.tsx` - Practice mode page
 3. `app/api/practice/weak-questions/route.ts` - API endpoint
-4. `scripts/migrate-adaptive-learning.sh` - Migration script
+4. `ADAPTIVE_LEARNING.md` - Full documentation
+5. `ADAPTIVE_LEARNING_SUMMARY.md` - This file
 5. `ADAPTIVE_LEARNING.md` - Detailed documentation
 6. `ADAPTIVE_LEARNING_SUMMARY.md` - This file
 7. `ADAPTIVE_LEARNING_QUICKSTART.md` - Quick start guide
@@ -123,8 +129,9 @@ New button added:
 ## 📖 More Information
 
 - **Full Documentation**: See `ADAPTIVE_LEARNING.md`
-- **Database Schema**: See `db/migrations/003_add_question_stats.sql`
+- **Database Schema**: See `lib/db/schema.ts` (question_stats table)
 - **Algorithm Details**: See `lib/game/engine.ts` → `generateAdaptiveQuestions()`
+- **Migration System**: See `MIGRATIONS.md`
 
 ## 🐛 Troubleshooting
 

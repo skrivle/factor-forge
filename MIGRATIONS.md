@@ -1,14 +1,15 @@
 # Database Migration System
 
-This project uses an automated database migration system that runs automatically on startup (both dev and production).
+This project uses **Drizzle ORM** for database migrations, providing a type-safe and automated migration system.
 
 ## Overview
 
-Migrations are SQL files that run in order to set up and update your database schema. They:
+Migrations are SQL files managed by Drizzle that run in order to set up and update your database schema. They:
 - ✅ Run automatically when you start the dev server (`npm run dev`)
 - ✅ Run automatically during production builds (`npm run build`)
-- ✅ Track which migrations have been applied to prevent duplicates
-- ✅ Are version controlled with your code
+- ✅ Track which migrations have been applied using Drizzle's tracking system
+- ✅ Are version controlled with your code in the `drizzle/` folder
+- ✅ Provide type-safety through the schema definition in `lib/db/schema.ts`
 
 ## Quick Start
 
@@ -31,27 +32,37 @@ Usually you don't need to do this - migrations run automatically!
 ### Create a New Migration
 
 ```bash
-npm run db:create-migration add_feature_name
+npm run db:create-migration
 ```
 
-Example:
-```bash
-npm run db:create-migration add_user_preferences
-```
-
-This creates a new file like `db/migrations/004_add_user_preferences.sql`.
+This generates a new migration file in the `drizzle/` folder based on changes you've made to `lib/db/schema.ts`.
 
 ## How It Works
 
+### Schema Definition
+
+The database schema is defined in TypeScript at `lib/db/schema.ts`. This is the single source of truth for your database structure.
+
+Example:
+```typescript
+export const users = pgTable('users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  pin: text('pin').notNull(),
+  role: text('role').notNull(),
+});
+```
+
 ### Migration Files
 
-Migrations are numbered SQL files in `db/migrations/`:
+When you change the schema, Drizzle generates migration SQL files in `drizzle/`:
 
 ```
-db/migrations/
-├── 001_initial_schema.sql
-├── 002_remove_streak_fields.sql
-└── 003_add_question_stats.sql
+drizzle/
+├── 0000_add_groups_and_tests.sql
+├── 0001_create_default_group.sql
+└── meta/
+    └── _journal.json  # Drizzle's migration tracking
 ```
 
 ### Automatic Execution
@@ -62,79 +73,79 @@ db/migrations/
 
 **Production (Vercel/etc):**
 - Migrations run during the build process
-- If migrations fail, the build continues (to prevent deployment failures from temporary DB issues)
-- You can also trigger migrations via the API endpoint `/api/migrate`
+- Ensures database is up to date before deployment
 
 ### Migration Tracking
 
-The system uses a `schema_migrations` table to track which migrations have been applied:
-
-```sql
-CREATE TABLE schema_migrations (
-  id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL,
-  applied_at TIMESTAMP DEFAULT NOW()
-);
-```
+Drizzle maintains a `__drizzle_migrations` table to track applied migrations automatically.
 
 ## Writing Migrations
 
-### Create a Migration
+### Workflow
 
-```bash
-npm run db:create-migration my_migration_name
-```
+1. **Update the Schema**: Edit `lib/db/schema.ts` to add/modify tables or columns
 
-### Edit the Migration File
+2. **Generate Migration**: Run the migration generator
+   ```bash
+   npm run db:create-migration
+   ```
 
-Open `db/migrations/XXX_my_migration_name.sql` and add your SQL:
+3. **Review Generated SQL**: Drizzle generates SQL in `drizzle/XXXX_description.sql`
 
-```sql
--- Migration: my_migration_name
--- Created: 2026-02-19
+4. **Apply Migration**: Migrations apply automatically on next `npm run dev` or deploy
 
--- Add a new column
-ALTER TABLE users ADD COLUMN avatar_url TEXT;
+### Example: Adding a Column
 
--- Create a new table
-CREATE TABLE IF NOT EXISTS user_preferences (
-  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  theme TEXT DEFAULT 'light',
-  notifications_enabled BOOLEAN DEFAULT true,
-  created_at TIMESTAMP DEFAULT NOW()
-);
+1. Edit `lib/db/schema.ts`:
+   ```typescript
+   export const users = pgTable('users', {
+     id: uuid('id').defaultRandom().primaryKey(),
+     name: text('name').notNull(),
+     pin: text('pin').notNull(),
+     role: text('role').notNull(),
+     avatarUrl: text('avatar_url'), // New field
+   });
+   ```
 
--- Create an index
-CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id 
-  ON user_preferences(user_id);
-```
+2. Generate migration:
+   ```bash
+   npm run db:create-migration
+   ```
+
+3. Drizzle creates `drizzle/XXXX_add_avatar_url.sql` with the appropriate SQL
+
+### Example: Creating a New Table
+
+1. Add to `lib/db/schema.ts`:
+   ```typescript
+   export const achievements = pgTable('achievements', {
+     id: uuid('id').defaultRandom().primaryKey(),
+     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+     achievementType: text('achievement_type').notNull(),
+     earnedAt: timestamp('earned_at').defaultNow(),
+   });
+   ```
+
+2. Generate migration:
+   ```bash
+   npm run db:create-migration
+   ```
 
 ### Best Practices
 
-1. **Use IF EXISTS / IF NOT EXISTS**
-   ```sql
-   CREATE TABLE IF NOT EXISTS my_table (...);
-   ALTER TABLE my_table DROP COLUMN IF EXISTS old_column;
-   ```
+1. **Always work through the schema file** - Don't manually edit migration SQL unless absolutely necessary
 
-2. **Add indexes for foreign keys**
-   ```sql
-   CREATE INDEX IF NOT EXISTS idx_table_user_id ON table(user_id);
-   ```
+2. **Review generated migrations** - Check that Drizzle generated the expected SQL
 
-3. **Keep migrations small and focused**
-   - One migration per feature/change
-   - Easier to debug and roll back if needed
-
-4. **Test migrations locally first**
+3. **Test locally first**
    ```bash
    npm run db:migrate:status  # Check status
-   npm run db:migrate         # Run pending migrations
+   npm run dev                # Apply and test
    ```
 
-5. **Never edit applied migrations**
-   - Once a migration is applied (especially in production), create a new migration to make changes
-   - Editing applied migrations will cause inconsistencies
+4. **Keep changes focused** - One logical change per migration
+
+5. **Never edit applied migrations** - Create a new migration to make changes
 
 ## Commands Reference
 
@@ -147,24 +158,16 @@ CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id
 | `npm run db:create-migration <name>` | Create a new migration file |
 | `npm run db:verify` | Verify database connection |
 
-## Migration API Endpoint
+## Commands Reference
 
-You can also trigger migrations via HTTP (useful for production):
-
-### Check Status
-
-```bash
-curl https://your-app.vercel.app/api/migrate?status=true
-```
-
-### Run Migrations
-
-```bash
-curl -X POST https://your-app.vercel.app/api/migrate \
-  -H "Authorization: Bearer YOUR_MIGRATION_SECRET"
-```
-
-**Security:** In production, the API requires a secret token. Set `MIGRATION_SECRET` in your environment variables.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Runs migrations, then starts dev server |
+| `npm run build` | Runs migrations, then builds for production |
+| `npm run db:migrate` | Manually run pending migrations |
+| `npm run db:migrate:status` | Show migration status |
+| `npm run db:create-migration` | Generate migration from schema changes |
+| `npm run db:verify` | Verify database connection |
 
 ## Troubleshooting
 
@@ -172,119 +175,78 @@ curl -X POST https://your-app.vercel.app/api/migrate \
 
 If a migration fails during development:
 
-1. Fix the SQL in the migration file
-2. Restart the dev server (migrations will retry)
+1. Check the error message in the console
+2. If needed, manually fix the database issue
+3. Delete the problematic migration from `drizzle/` if it's new
+4. Fix your `lib/db/schema.ts`
+5. Regenerate the migration
+6. Restart the dev server
 
-### Migration Tracking Is Wrong
+### Schema and Database Out of Sync
 
-If you already have tables but migrations show as pending:
-
-```bash
-node scripts/mark-migrations-applied.js --yes
-```
-
-This marks existing migrations as applied without running them.
-
-### Reset All Migrations (Destructive!)
-
-⚠️ **This deletes all data!**
-
-```sql
--- In your database SQL editor
-DROP TABLE IF EXISTS schema_migrations CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS sessions CASCADE;
-DROP TABLE IF EXISTS user_stats CASCADE;
-DROP TABLE IF EXISTS question_stats CASCADE;
-```
-
-Then restart your dev server to run all migrations from scratch.
-
-### Check What Will Be Applied
+If your database doesn't match your schema:
 
 ```bash
+# Check what migrations are pending
 npm run db:migrate:status
+
+# Apply pending migrations
+npm run db:migrate
 ```
 
-This shows pending migrations without running them.
+### Need to Rollback Changes
 
-### Migration Failed in Production
+Drizzle doesn't have automatic rollback. Options:
 
-1. Check the Vercel build logs for migration errors
-2. Fix the migration SQL
-3. Push the fix
-4. Or trigger migrations manually via API:
-   ```bash
-   curl -X POST https://your-app.vercel.app/api/migrate \
-     -H "Authorization: Bearer $MIGRATION_SECRET"
-   ```
+1. **Create a new migration** that reverses the changes (recommended)
+2. **Manually run SQL** to undo changes in your database
+3. **Reset database** (destructive - only for development)
 
 ## Examples
 
 ### Example 1: Add a New Column
 
-```bash
-npm run db:create-migration add_email_to_users
-```
+1. Edit `lib/db/schema.ts`:
+   ```typescript
+   export const users = pgTable('users', {
+     id: uuid('id').defaultRandom().primaryKey(),
+     name: text('name').notNull(),
+     pin: text('pin').notNull(),
+     role: text('role').notNull(),
+     email: text('email'), // Add this line
+   });
+   ```
 
-Edit `db/migrations/004_add_email_to_users.sql`:
-```sql
--- Add email column to users table
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
-```
+2. Generate migration:
+   ```bash
+   npm run db:create-migration
+   ```
+
+3. Drizzle creates the migration automatically!
 
 ### Example 2: Create a New Table
 
-```bash
-npm run db:create-migration create_achievements_table
-```
+1. Add to `lib/db/schema.ts`:
+   ```typescript
+   export const achievements = pgTable('achievements', {
+     id: uuid('id').defaultRandom().primaryKey(),
+     userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+     achievementType: text('achievement_type').notNull(),
+     earnedAt: timestamp('earned_at').defaultNow(),
+   });
 
-Edit `db/migrations/005_create_achievements_table.sql`:
-```sql
--- Create achievements table
-CREATE TABLE IF NOT EXISTS achievements (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  achievement_type TEXT NOT NULL,
-  earned_at TIMESTAMP DEFAULT NOW()
-);
+   export const achievementsRelations = relations(achievements, ({ one }) => ({
+     user: one(users, {
+       fields: [achievements.userId],
+       references: [users.id],
+     }),
+   }));
+   ```
 
-CREATE INDEX IF NOT EXISTS idx_achievements_user_id 
-  ON achievements(user_id);
-```
-
-### Example 3: Rename a Column
-
-```bash
-npm run db:create-migration rename_accuracy_to_accuracy_rate
-```
-
-Edit `db/migrations/006_rename_accuracy_to_accuracy_rate.sql`:
-```sql
--- Rename accuracy column to accuracy_rate
-ALTER TABLE sessions 
-  RENAME COLUMN accuracy TO accuracy_rate;
-```
-
-### Example 4: Add a Computed Column
-
-```bash
-npm run db:create-migration add_score_ranking_view
-```
-
-Edit `db/migrations/007_add_score_ranking_view.sql`:
-```sql
--- Create a view for score rankings
-CREATE OR REPLACE VIEW user_rankings AS
-SELECT 
-  u.id,
-  u.name,
-  us.best_score,
-  RANK() OVER (ORDER BY us.best_score DESC) as rank
-FROM users u
-JOIN user_stats us ON u.id = us.user_id
-ORDER BY rank;
-```
+2. Generate migration:
+   ```bash
+   npm run db:create-migration
+   ```
 
 ## Production Deployment
 
@@ -294,56 +256,32 @@ Migrations run automatically during build. No extra configuration needed!
 
 The build command in `package.json` already includes migrations:
 ```json
-"build": "node scripts/migrate.js up && next build"
+"build": "npx tsx scripts/drizzle-migrate.ts && next build"
 ```
+
+Build logs will show migration status.
 
 ### Other Platforms
 
 Make sure your build command runs migrations:
 ```bash
-node scripts/migrate.js up && npm run build
+npx tsx scripts/drizzle-migrate.ts && npm run build
 ```
-
-Or use the post-install hook (already configured in `scripts/post-install.js`).
 
 ## Architecture
 
+Drizzle ORM provides a complete type-safe database workflow:
+
 ```
-┌─────────────────┐
-│   npm run dev   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ scripts/        │
-│ pre-dev.js      │◄── Loads .env.local
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ lib/db/         │
-│ migrations.js   │◄── Migration logic
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Check           │
-│ schema_         │◄── Tracking table
-│ migrations      │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Run pending     │
-│ migrations from │◄── SQL files
-│ db/migrations/  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Next.js dev     │
-│ server starts   │
-└─────────────────┘
+1. Define Schema (lib/db/schema.ts)
+   ↓
+2. Generate Migration (drizzle-kit generate)
+   ↓
+3. Review SQL (drizzle/XXXX_*.sql)
+   ↓
+4. Apply Migration (automatic or manual)
+   ↓
+5. TypeScript types auto-generated from schema
 ```
 
 ## FAQ
@@ -351,23 +289,17 @@ Or use the post-install hook (already configured in `scripts/post-install.js`).
 **Q: Do I need to run migrations manually?**  
 A: No! They run automatically on `npm run dev` and during build.
 
-**Q: Can I run migrations in parallel?**  
-A: No, migrations run sequentially in numerical order to maintain consistency.
+**Q: Can I edit migration files directly?**  
+A: Not recommended. Always update `lib/db/schema.ts` and regenerate migrations.
 
 **Q: What if I need to rollback a migration?**  
-A: Create a new migration that reverses the changes. Never edit applied migrations.
+A: Create a new migration that reverses the changes. Drizzle doesn't have automatic rollback.
 
 **Q: How do I add seed data?**  
-A: Create a migration with INSERT statements. Use `ON CONFLICT DO NOTHING` to make it idempotent.
-
-**Q: Can migrations fail?**  
-A: Yes. In development, the server won't start. In production, builds continue but you should fix and redeploy.
+A: Create a manual SQL migration file or use a separate seeding script.
 
 **Q: Where is the migration history stored?**  
-A: In the `schema_migrations` table in your database.
-
-**Q: Can I skip a migration?**  
-A: Not recommended. If needed, you can manually insert a row into `schema_migrations`.
+A: In the `__drizzle_migrations` table in your database, plus `drizzle/meta/_journal.json` for version control.
 
 ---
 

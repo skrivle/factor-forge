@@ -1,8 +1,14 @@
 import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import * as schema from './schema';
 
 const sql = neon(process.env.POSTGRES_URL!);
 
+// Export raw SQL client for existing queries
 export { sql };
+
+// Export Drizzle instance for new type-safe queries
+export const db = drizzle(sql, { schema });
 
 // Database types based on schema
 export interface User {
@@ -10,6 +16,7 @@ export interface User {
   name: string;
   pin: string;
   role: 'parent' | 'child';
+  group_id: string | null;
   created_at: Date;
 }
 
@@ -52,4 +59,37 @@ export interface WeakQuestion {
   times_incorrect: number;
   accuracy_rate: number;
   avg_time_taken: number | null;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  created_at: Date;
+}
+
+export interface Test {
+  id: string;
+  group_id: string;
+  created_by: string;
+  title: string;
+  description: string | null;
+  question_count: number;
+  time_limit_seconds: number | null;
+  tables_included: number[];
+  include_division: boolean;
+  created_at: Date;
+}
+
+export interface TestAttempt {
+  id: string;
+  test_id: string;
+  user_id: string;
+  score: number;
+  total_questions: number;
+  accuracy: number;
+  time_taken_seconds: number | null;
+  questions: any;
+  status: 'completed' | 'in_progress';
+  started_at: Date;
+  completed_at: Date | null;
 }

@@ -7,7 +7,7 @@
 
 require('dotenv').config({ path: '.env.local' });
 
-async function preDev() {
+function preDev() {
   console.log('🚀 Pre-dev checks...\n');
 
   // Check if database URL is configured
@@ -17,18 +17,18 @@ async function preDev() {
     process.exit(1);
   }
 
-  // Run migrations
+  // Run migrations using Drizzle
   try {
-    const { runMigrations } = require('../lib/db/migrations');
-    await runMigrations();
-    console.log('');
+    const { execSync } = require('child_process');
+    console.log('🔄 Running Drizzle migrations...');
+    execSync('npx tsx scripts/drizzle-migrate.ts', { stdio: 'inherit' });
   } catch (error) {
     console.error('❌ Migration failed. Please fix the issue before starting the dev server.');
     console.error(error);
     process.exit(1);
   }
 
-  console.log('✅ Pre-dev checks complete!\n');
+  console.log('\n✅ Pre-dev checks complete!\n');
 }
 
 preDev();
