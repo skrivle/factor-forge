@@ -2,7 +2,7 @@ import 'next-auth';
 
 declare module 'next-auth' {
   interface User {
-    role?: 'parent' | 'child';
+    role?: 'parent' | 'child' | 'admin';
   }
 
   interface Session {
@@ -11,7 +11,7 @@ declare module 'next-auth' {
       name?: string | null;
       email?: string | null;
       image?: string | null;
-      role?: 'parent' | 'child';
+      role?: 'parent' | 'child' | 'admin';
     };
   }
 }
@@ -19,6 +19,6 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     id?: string;
-    role?: 'parent' | 'child';
+    role?: 'parent' | 'child' | 'admin';
   }
 }
