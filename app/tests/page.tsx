@@ -24,7 +24,7 @@ interface TestAttempt {
   test_id: string;
   score: number;
   total_questions: number;
-  accuracy: number;
+  accuracy: string | number; // decimal type from DB returns as string
   time_taken_seconds: number | null;
   status: 'completed' | 'in_progress';
   completed_at: string | null;
@@ -208,7 +208,7 @@ export default function TestsPage() {
                               <div>
                                 <div className="text-green-400 font-bold">Voltooid!</div>
                                 <div className="text-gray-300 text-sm">
-                                  Score: {attempt.score}/{attempt.total_questions} ({attempt.accuracy.toFixed(0)}%)
+                                  Score: {attempt.score}/{attempt.total_questions} ({Number(attempt.accuracy).toFixed(0)}%)
                                 </div>
                               </div>
                               <Button

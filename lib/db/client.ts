@@ -24,7 +24,7 @@ export interface GameSession {
   id: string;
   user_id: string;
   score: number;
-  accuracy: number;
+  accuracy: string | number; // decimal type from DB returns as string
   difficulty_level: 'easy' | 'medium' | 'hard';
   completed_at: Date;
 }
@@ -86,7 +86,7 @@ export interface TestAttempt {
   user_id: string;
   score: number;
   total_questions: number;
-  accuracy: number;
+  accuracy: string | number; // decimal type from DB returns as string
   time_taken_seconds: number | null;
   questions: any;
   status: 'completed' | 'in_progress';

@@ -26,7 +26,7 @@ interface TestAttempt {
   user_role: string;
   score: number;
   total_questions: number;
-  accuracy: number;
+  accuracy: string | number; // decimal type from DB returns as string
   time_taken_seconds: number | null;
   status: 'completed' | 'in_progress';
   started_at: string;
