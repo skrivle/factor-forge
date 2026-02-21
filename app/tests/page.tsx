@@ -79,7 +79,7 @@ export default function TestsPage() {
     // Check if already completed
     const attempt = attempts[testId];
     if (attempt && attempt.status === 'completed') {
-      alert('Je hebt deze test al voltooid!');
+      alert('Deze test is al voltooid en kan niet opnieuw worden gemaakt!');
       return;
     }
 
@@ -211,22 +211,20 @@ export default function TestsPage() {
                                   Score: {attempt.score}/{attempt.total_questions} ({attempt.accuracy.toFixed(0)}%)
                                 </div>
                               </div>
-                              {userRole === 'parent' && (
-                                <Button
-                                  onClick={() => router.push(`/tests/${test.id}/results`)}
-                                  variant="ghost"
-                                  className="text-green-400 hover:text-green-300"
-                                >
-                                  Bekijk Details
-                                </Button>
-                              )}
+                              <Button
+                                onClick={() => router.push(`/tests/${test.id}/results`)}
+                                variant="ghost"
+                                className="text-green-400 hover:text-green-300"
+                              >
+                                Bekijk Details
+                              </Button>
                             </div>
                           </div>
                         )}
                       </div>
 
-                      <div className="ml-4">
-                        {userRole === 'child' && !isCompleted && (
+                      <div className="ml-4 flex gap-2">
+                        {!isCompleted && (
                           <Button
                             onClick={() => handleStartTest(test.id)}
                             className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500"

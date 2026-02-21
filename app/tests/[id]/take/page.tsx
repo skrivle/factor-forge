@@ -91,7 +91,7 @@ export default function TakeTestPage() {
       if (attemptResponse.ok) {
         const attemptData = await attemptResponse.json();
         if (attemptData.attempt && attemptData.attempt.status === 'completed') {
-          alert('Je hebt deze test al voltooid!');
+          alert('Deze test is al voltooid en kan niet opnieuw worden gemaakt!');
           router.push('/tests');
           return;
         }
