@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { createTest, getGroupTests, getTest, deleteTest } from '@/lib/db/queries';
+import { createTest, getGroupTests, getTest, deleteTest, canAccessGroup, getUserGroupId } from '@/lib/db/queries';
 
 // GET /api/tests - Get all tests for user's group
 export async function GET(req: Request) {
@@ -12,34 +12,29 @@ export async function GET(req: Request) {
     }
 
     const userId = (session.user as any).id;
+    const userRole = (session.user as any).role ?? 'child';
     const { searchParams } = new URL(req.url);
     const testId = searchParams.get('testId');
 
-    // If testId is provided, get specific test
+    // If testId is provided, get specific test (must be in user's group)
     if (testId) {
       const test = await getTest(testId);
       if (!test) {
         return NextResponse.json({ error: 'Test not found' }, { status: 404 });
       }
+      const allowed = await canAccessGroup(userId, test.group_id, userRole);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Forbidden: test is not in your group' }, { status: 403 });
+      }
       return NextResponse.json(test);
     }
 
-    // Get user to find their group
-    const userResult = await fetch(`${req.url.split('/api')[0]}/api/user/profile`, {
-      headers: req.headers,
-    });
-    
-    if (!userResult.ok) {
-      return NextResponse.json({ error: 'Could not fetch user profile' }, { status: 500 });
-    }
-
-    const userData = await userResult.json();
-    
-    if (!userData.group_id) {
+    const userGroupId = await getUserGroupId(userId);
+    if (!userGroupId) {
       return NextResponse.json({ tests: [] });
     }
 
-    const tests = await getGroupTests(userData.group_id);
+    const tests = await getGroupTests(userGroupId);
     return NextResponse.json({ tests });
 
   } catch (error) {
@@ -81,6 +76,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ 
         error: 'Missing required fields: groupId, title, questionCount, tablesIncluded' 
       }, { status: 400 });
+    }
+
+    const userRoleForGroup = (session.user as any).role ?? 'child';
+    const canCreateInGroup = await canAccessGroup(userId, groupId, userRoleForGroup);
+    if (!canCreateInGroup) {
+      return NextResponse.json({ error: 'Forbidden: you can only create tests for your own group' }, { status: 403 });
     }
 
     // Validate question count
@@ -131,11 +132,22 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Only parents can delete tests' }, { status: 403 });
     }
 
+    const userId = (session.user as any).id;
     const { searchParams } = new URL(req.url);
     const testId = searchParams.get('testId');
 
     if (!testId) {
       return NextResponse.json({ error: 'Test ID is required' }, { status: 400 });
+    }
+
+    const test = await getTest(testId);
+    if (!test) {
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+    }
+    const userRoleForDelete = (session.user as any).role ?? 'child';
+    const canDelete = await canAccessGroup(userId, test.group_id, userRoleForDelete);
+    if (!canDelete) {
+      return NextResponse.json({ error: 'Forbidden: you can only delete tests in your own group' }, { status: 403 });
     }
 
     await deleteTest(testId);

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { createGroup, getGroup, addUserToGroup, getGroupMembers } from '@/lib/db/queries';
+import { createGroup, getGroup, addUserToGroup, getGroupMembers, canAccessGroup } from '@/lib/db/queries';
 import { sql } from '@/lib/db/client';
 
 // GET /api/groups - Get group information
@@ -13,10 +13,15 @@ export async function GET(req: Request) {
     }
 
     const userId = (session.user as any).id;
+    const userRole = (session.user as any).role ?? 'child';
     const { searchParams } = new URL(req.url);
     const groupId = searchParams.get('groupId');
 
     if (groupId) {
+      const allowed = await canAccessGroup(userId, groupId, userRole);
+      if (!allowed) {
+        return NextResponse.json({ error: 'Forbidden: not a member of this group' }, { status: 403 });
+      }
       const group = await getGroup(groupId);
       if (!group) {
         return NextResponse.json({ error: 'Group not found' }, { status: 404 });

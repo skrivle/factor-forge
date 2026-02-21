@@ -34,10 +34,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: 'Tables must be between 1 and 10' }, { status: 400 });
     }
 
-    // Check if user is admin of the group
+    // Check if user is admin of this group
     const isAdmin = await isUserAdminOfGroup(userId, groupId);
-    if (!isAdmin && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can update group settings' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only the admin of this group can update settings' }, { status: 403 });
     }
 
     // Update group settings

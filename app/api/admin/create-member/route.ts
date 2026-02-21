@@ -30,10 +30,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid role. Can only create parent or child accounts.' }, { status: 400 });
     }
 
-    // Check if user is admin of the group
+    // Check if user is admin of this group (admins can only manage their own group)
     const isAdmin = await isUserAdminOfGroup(userId, groupId);
-    if (!isAdmin && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can create members' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only the admin of this group can create members' }, { status: 403 });
     }
 
     // Create new user and add to group immediately

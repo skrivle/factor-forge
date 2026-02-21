@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { sql } from '@/lib/db/client';
+import { filterUserIdsToSameGroup } from '@/lib/db/queries';
 
 export async function GET(req: Request) {
   try {
@@ -9,9 +10,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const currentUserId = (session.user as any).id;
     const { searchParams } = new URL(req.url);
-    const userIds = searchParams.get('userIds')?.split(',') || [];
+    const requestedUserIds = searchParams.get('userIds')?.split(',').filter(Boolean) || [];
     const days = parseInt(searchParams.get('days') || '14');
+
+    if (requestedUserIds.length === 0) {
+      return NextResponse.json({ activities: {} });
+    }
+
+    // Only allow querying activity for users in the same group
+    const userIds = await filterUserIdsToSameGroup(currentUserId, requestedUserIds);
 
     if (userIds.length === 0) {
       return NextResponse.json({ activities: {} });

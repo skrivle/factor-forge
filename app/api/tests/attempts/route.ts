@@ -6,7 +6,8 @@ import {
   getUserTestAttempt,
   getTestAttempts,
   getTest,
-  saveTestQuestionStats
+  saveTestQuestionStats,
+  canAccessGroup
 } from '@/lib/db/queries';
 
 // GET /api/tests/attempts - Get test attempts
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
     }
 
     const userId = (session.user as any).id;
+    const userRole = (session.user as any).role ?? 'child';
     const { searchParams } = new URL(req.url);
     const testId = searchParams.get('testId');
 
@@ -26,13 +28,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Test ID is required' }, { status: 400 });
     }
 
+    const test = await getTest(testId);
+    if (!test) {
+      return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+    }
+    const allowed = await canAccessGroup(userId, test.group_id, userRole);
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden: test is not in your group' }, { status: 403 });
+    }
+
     // Check if this is a request for a specific user's attempt
     const forUser = searchParams.get('userId');
     
     if (forUser) {
       // Get specific user's attempt (parents can see all, children only their own)
-      const userRole = (session.user as any).role;
-      if (userRole !== 'parent' && forUser !== userId) {
+      if (userRole !== 'parent' && userRole !== 'admin' && forUser !== userId) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       
@@ -41,8 +51,7 @@ export async function GET(req: Request) {
     }
 
     // Get all attempts for this test (parent only)
-    const userRole = (session.user as any).role;
-    if (userRole !== 'parent') {
+    if (userRole !== 'parent' && userRole !== 'admin') {
       // Children can only see their own attempts
       const attempt = await getUserTestAttempt(testId, userId);
       return NextResponse.json({ attempts: attempt ? [attempt] : [] });
@@ -74,10 +83,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Test ID is required' }, { status: 400 });
     }
 
-    // Get the test details
+    // Get the test details and ensure user can access it (same group)
     const test = await getTest(testId);
     if (!test) {
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
+    }
+    const attemptUserRole = (session.user as any).role ?? 'child';
+    const allowed = await canAccessGroup(userId, test.group_id, attemptUserRole);
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden: test is not in your group' }, { status: 403 });
     }
 
     if (action === 'start') {

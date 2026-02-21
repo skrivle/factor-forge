@@ -26,10 +26,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check if user is admin of the group
+    // Check if user is admin of this group
     const isAdmin = await isUserAdminOfGroup(userId, groupId);
-    if (!isAdmin && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can add members' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only the admin of this group can add members' }, { status: 403 });
     }
 
     // Add user to group
@@ -64,10 +64,10 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check if user is admin of the group
+    // Check if user is admin of this group
     const isAdmin = await isUserAdminOfGroup(userId, groupId);
-    if (!isAdmin && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can remove members' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only the admin of this group can remove members' }, { status: 403 });
     }
 
     // Prevent removing self if they're the only admin
@@ -106,10 +106,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing groupId' }, { status: 400 });
     }
 
-    // Check if user is admin of the group
+    // Check if user is admin of this group
     const isAdmin = await isUserAdminOfGroup(userId, groupId);
-    if (!isAdmin && userRole !== 'admin') {
-      return NextResponse.json({ error: 'Only admins can view available members' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Only the admin of this group can view available members' }, { status: 403 });
     }
 
     // Get users not in any group

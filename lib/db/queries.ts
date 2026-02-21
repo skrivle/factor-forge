@@ -451,6 +451,44 @@ export async function isUserAdminOfGroup(userId: string, groupId: string): Promi
   return result.length > 0;
 }
 
+/** Get the user's group_id (null if not in a group). */
+export async function getUserGroupId(userId: string): Promise<string | null> {
+  const result = await sql`
+    SELECT group_id FROM users WHERE id = ${userId}
+  `;
+  const row = result[0] as { group_id: string | null } | undefined;
+  return row?.group_id ?? null;
+}
+
+/** True if user belongs to the group (same group_id). Admins can only access their own group. */
+export async function canAccessGroup(
+  userId: string,
+  groupId: string,
+  _userRole?: string
+): Promise<boolean> {
+  const result = await sql`
+    SELECT 1 FROM users WHERE id = ${userId} AND group_id = ${groupId}
+  `;
+  return result.length > 0;
+}
+
+/** Returns only those userIds that belong to the same group as the given user. */
+export async function filterUserIdsToSameGroup(
+  currentUserId: string,
+  userIds: string[]
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+  const groupResult = await sql`
+    SELECT group_id FROM users WHERE id = ${currentUserId}
+  `;
+  const groupId = (groupResult[0] as { group_id: string | null } | undefined)?.group_id;
+  if (!groupId) return [];
+  const result = await sql`
+    SELECT id FROM users WHERE group_id = ${groupId} AND id = ANY(${userIds}::uuid[])
+  `;
+  return (result as { id: string }[]).map((r) => r.id);
+}
+
 // Test queries
 export async function createTest(
   groupId: string,
