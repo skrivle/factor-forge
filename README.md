@@ -89,7 +89,7 @@ VALUES
   ('Bob', '2222', 'child');
 ```
 
-**Security Note**: In a production environment, PINs should be hashed. For a family app on a private network, plain text may be acceptable.
+**Security Note**: PINs are automatically hashed using bcrypt when users are created. The plain-text PINs you insert will be hashed during the next migration run (which happens automatically on dev server start and deployment build).
 
 ### 5. Run Development Server
 

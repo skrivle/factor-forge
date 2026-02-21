@@ -15,6 +15,13 @@
       "when": 1771695000000,
       "tag": "0001_create_default_group",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771700000000,
+      "tag": "0002_hash_user_pins",
+      "breakpoints": true
     }
   ]
 }

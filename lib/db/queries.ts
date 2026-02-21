@@ -2,12 +2,14 @@ import { sql } from './client';
 import type { User, GameSession, UserStats, QuestionStat, WeakQuestion, Group, Test, TestAttempt } from './client';
 import { getTodayString, toLocalDateString, daysDiff } from '@/lib/date-utils';
 import type { Question } from '@/lib/game/engine';
+import bcrypt from 'bcryptjs';
 
 // User queries
 export async function createUser(name: string, pin: string, role: 'parent' | 'child' = 'child') {
+  const hashedPin = await bcrypt.hash(pin, 10);
   const result = await sql`
     INSERT INTO users (name, pin, role)
-    VALUES (${name}, ${pin}, ${role})
+    VALUES (${name}, ${hashedPin}, ${role})
     RETURNING *
   `;
   return result[0] as User;
@@ -29,9 +31,16 @@ export async function getAllUsers() {
 
 export async function verifyUserPin(name: string, pin: string) {
   const result = await sql`
-    SELECT * FROM users WHERE name = ${name} AND pin = ${pin}
+    SELECT * FROM users WHERE name = ${name}
   `;
-  return result[0] as User | undefined;
+  const user = result[0] as User | undefined;
+  
+  if (!user) {
+    return undefined;
+  }
+  
+  const isValid = await bcrypt.compare(pin, user.pin);
+  return isValid ? user : undefined;
 }
 
 // Session queries

@@ -150,50 +150,24 @@ See README.md for planned features.
 ## Security Recommendations
 
 ### For Family Use (Private Network)
-- Keep the default PIN system
+- ✅ **PIN hashing enabled by default** - All PINs are automatically hashed using bcrypt
 - Use a strong `NEXTAUTH_SECRET`
 - Don't expose publicly without additional security
 
 ### For Public/Shared Hosting
-1. **Hash PINs**: Modify `lib/db/queries.ts` to use bcrypt
+1. ✅ **PINs are hashed** - Already implemented with bcrypt
 2. **Add Rate Limiting**: Use Vercel's rate limiting or Upstash
 3. **Add CAPTCHA**: For sign-in page
 4. **Use Email Verification**: For new user registration
 
-### Hashing PINs (Recommended for Production)
+### PIN Hashing (✅ Already Implemented)
 
-Install bcrypt:
-```bash
-npm install bcrypt
-npm install --save-dev @types/bcrypt
-```
+The app automatically hashes PINs using bcryptjs:
+- New users: PINs are hashed on creation
+- Existing users: PINs are hashed during migration (runs automatically)
+- The migration is idempotent - it won't re-hash already hashed PINs
 
-Update `lib/db/queries.ts`:
-```typescript
-import bcrypt from 'bcrypt';
-
-export async function createUser(name: string, pin: string, role: 'parent' | 'child' = 'child') {
-  const hashedPin = await bcrypt.hash(pin, 10);
-  const result = await sql`
-    INSERT INTO users (name, pin, role)
-    VALUES (${name}, ${hashedPin}, ${role})
-    RETURNING *
-  `;
-  return result.rows[0] as User;
-}
-
-export async function verifyUserPin(name: string, pin: string) {
-  const result = await sql`
-    SELECT * FROM users WHERE name = ${name}
-  `;
-  const user = result.rows[0] as User | undefined;
-  
-  if (!user) return undefined;
-  
-  const isValid = await bcrypt.compare(pin, user.pin);
-  return isValid ? user : undefined;
-}
-```
+No additional configuration needed. The system handles everything automatically.
 
 ## Monitoring
 
