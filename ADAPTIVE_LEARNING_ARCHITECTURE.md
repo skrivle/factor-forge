@@ -1,8 +1,12 @@
 # Adaptive Learning System - Architecture Diagram
 
+## Data Collection Flow
+
+The system collects question-level data from **two main sources**:
+
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         USER PLAYS GAME                              │
+│                    DATA SOURCE 1: GAMES                              │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
@@ -27,27 +31,66 @@
 │  • Calls saveQuestionStats()                                         │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
+                               └───────────────┐
+                                               │
+┌─────────────────────────────────────────────────────────────────────┐
+│                    DATA SOURCE 2: TESTS                              │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
+│                    Test Taking Page                                  │
+│  • User answers test questions                                       │
+│  • Records: answer for each question                                 │
+│  • Tracks progress through test                                      │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                     Test Ends → submitTest()                         │
+│  • Score, accuracy, questions with answers                           │
+│  • questionsWithAnswers[{question, userAnswer, isCorrect}]          │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  POST /api/tests/attempts                            │
+│  • Saves test attempt summary                                        │
+│  • Calls completeTestAttempt()                                       │
+│  • Calls saveTestQuestionStats() ⭐ NEW!                             │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │
+                               └───────────────┐
+                                               │
+                                               ▼
+                                    ┌──────────────────┐
+                                    │  UNIFIED STORAGE │
+                                    └──────────┬───────┘
+                                               │
+                                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
 │                  Database: question_stats                            │
-│  • Stores individual question performance                            │
-│  • Links to user_id and session_id                                   │
+│  • Stores individual question performance from ALL sources           │
+│  • Links to user_id and session_id (can be game or test)            │
 │  • Fields: num1, num2, operation, is_correct, time_taken             │
+│  • Unified storage for games, tests, and practice sessions           │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                   Analysis & Aggregation                             │
-│  • View: user_weak_questions                                         │
+│  • Analyzes ALL question_stats entries                               │
 │  • Groups by (user_id, num1, num2, operation)                        │
 │  • Calculates: accuracy_rate, times_incorrect                        │
 │  • Filters: questions seen >= 2 times                                │
+│  • Source-agnostic: treats game and test data equally                │
 └──────────────────────────────┬──────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │              USER CLICKS "SLIMME OEFENING" 🎯                        │
 └──────────────────────────────┬──────────────────────────────────────┘
+```
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -116,26 +159,26 @@
 
 ## Data Flow Example
 
-### Example 1: User Struggles with 3×8
+### Example 1: User Struggles with 3×8 (Mixed Sources)
 
 ```
-Session 1: 3×8 = ?
+Game Session 1: 3×8 = ?
 ├─> User answers: 21 (wrong)
-├─> Saves: is_correct=false, time_taken=4.5s
-└─> question_stats: { 3, 8, multiplication, false }
+├─> Saves via saveQuestionStats()
+└─> question_stats: { 3, 8, multiplication, false, session_id: game123 }
 
-Session 2: 3×8 = ?
-├─> User answers: 23 (wrong)
-├─> Saves: is_correct=false, time_taken=5.2s
-└─> question_stats: { 3, 8, multiplication, false }
+Test Attempt: 3×8 = ?
+├─> User answers: 23 (wrong)  
+├─> Saves via saveTestQuestionStats() ⭐ NEW!
+└─> question_stats: { 3, 8, multiplication, false, session_id: test456 }
 
-Session 3: 3×8 = ?
+Game Session 2: 3×8 = ?
 ├─> User answers: 24 (correct!)
-├─> Saves: is_correct=true, time_taken=3.1s
-└─> question_stats: { 3, 8, multiplication, true }
+├─> Saves via saveQuestionStats()
+└─> question_stats: { 3, 8, multiplication, true, session_id: game789 }
 
-Analysis:
-├─> times_seen: 3
+Analysis (combines ALL sources):
+├─> times_seen: 3 (2 from games, 1 from test)
 ├─> times_incorrect: 2
 ├─> accuracy_rate: 0.33 (33%)
 └─> WEIGHT: 10x (high priority for practice!)
@@ -144,6 +187,26 @@ Practice Session:
 ├─> 3×8 appears ~7 times out of 20 questions
 ├─> User practices intensively
 └─> Accuracy improves → weight decreases
+```
+
+### Example 2: Test Provides Rich Data Quickly
+
+```
+Child completes a test with 20 questions:
+├─> Gets wrong: 3×8, 6×7, 9×4, 7×6, 8×9
+├─> Gets correct: other 15 questions
+└─> ALL 20 questions saved to question_stats
+
+Immediate Smart Practice Benefits:
+├─> 5 weak questions identified from single test
+├─> No need to wait for multiple game sessions
+├─> Smart Practice can activate immediately
+└─> Practice focuses on these 5 weak areas
+
+Next Test or Game:
+├─> More data for existing weak questions
+├─> Refined accuracy rates
+└─> Better practice recommendations
 ```
 
 ### Example 2: User Masters 2×5
@@ -279,3 +342,94 @@ lib/game/engine.ts:
 - User can only access own question stats
 - Database queries use parameterized statements
 - No sensitive data exposed in responses
+
+## Test Integration Implementation Details
+
+### New Function: `saveTestQuestionStats()`
+
+Located in `lib/db/queries.ts`, this function converts test attempt data into the unified question_stats format:
+
+```typescript
+export async function saveTestQuestionStats(
+  userId: string,
+  testAttemptId: string,
+  questions: any[]
+) {
+  // Extract question data from test attempt format
+  const values = questions.map(item => ({
+    user_id: userId,
+    session_id: testAttemptId, // Test attempt ID used as session reference
+    num1: item.question.num1,
+    num2: item.question.num2,
+    operation: item.question.operation,
+    correct_answer: item.question.answer,
+    user_answer: item.userAnswer,
+    is_correct: item.isCorrect,
+    time_taken: null, // Tests don't track per-question time
+  }));
+
+  // Insert all question stats
+  for (const stat of values) {
+    await sql`INSERT INTO question_stats (...)`;
+  }
+}
+```
+
+### API Integration
+
+Modified `/api/tests/attempts` route to call the new function:
+
+```typescript
+// In POST /api/tests/attempts when action === 'complete'
+const completedAttempt = await completeTestAttempt(...);
+
+// Save individual question stats for smart practice
+await saveTestQuestionStats(userId, attemptId, questions);
+
+return NextResponse.json({ attempt: completedAttempt });
+```
+
+### Data Format Compatibility
+
+**Test Questions Format (input):**
+```javascript
+[
+  {
+    question: { num1: 3, num2: 8, operation: 'multiplication', answer: 24 },
+    userAnswer: 21,
+    isCorrect: false
+  },
+  // ... more questions
+]
+```
+
+**Question Stats Format (output):**
+```javascript
+{
+  user_id: 'uuid',
+  session_id: 'test-attempt-uuid',
+  num1: 3,
+  num2: 8,
+  operation: 'multiplication',
+  correct_answer: 24,
+  user_answer: 21,
+  is_correct: false,
+  time_taken: null
+}
+```
+
+### Benefits of Unified Storage
+
+1. **Single Source of Truth**: All question performance data in one table
+2. **Simplified Analysis**: One query analyzes all data regardless of source
+3. **Consistent Weights**: Test and game data weighted equally in practice mode
+4. **Faster Learning**: Tests provide many data points quickly
+5. **Traceability**: session_id links back to original test attempt or game session
+
+### Key Implementation Points
+
+- ✅ No changes needed to existing game question tracking
+- ✅ No changes needed to smart practice algorithm
+- ✅ Tests automatically contribute to weak question detection
+- ✅ Backwards compatible with existing data
+- ✅ Error handling prevents test completion failure if stats fail to save

@@ -9,18 +9,21 @@ Your math app now tracks which questions users answer incorrectly and creates pe
 - Every question answered is now tracked in detail
 - Tracks: correctness, time taken, user's answer
 - Builds a profile of each user's strengths and weaknesses
+- **NEW**: Works for both games AND tests! 🎯
 
 ### 2. Adaptive Practice Mode ("Slimme Oefening")
 - New practice mode on home page
 - Automatically focuses on questions the user struggles with
 - Weighted question selection (harder questions appear more often)
 - 70% weak questions + 30% random for variety
+- **Uses data from games, tests, and practice sessions**
 
 ### 3. Intelligent Algorithm
 - Questions with <50% accuracy get 10x more practice
 - Questions with 50-75% accuracy get 5x more practice
 - Questions with 75-90% accuracy get 3x more practice
 - Automatically adjusts as user improves
+- **Analyzes all question attempts regardless of source**
 
 ## 🚀 Getting Started
 
@@ -46,7 +49,7 @@ npm run dev
 ```
 
 ### Step 3: Test It Out
-1. Play 2-3 regular game sessions
+1. Play 2-3 regular game sessions OR complete a test
 2. Intentionally miss some questions (for testing)
 3. Go to home page
 4. Click "Slimme Oefening 🎯"
@@ -56,8 +59,8 @@ npm run dev
 
 ### Before Practice Mode is Ready
 - User sees: "Not enough data" message
-- Prompted to play more regular games
-- Needs at least 5 weak questions from 2+ sessions
+- Prompted to play more regular games or complete tests
+- Needs at least 5 weak questions from 2+ sessions (games or tests)
 
 ### When Ready
 - Shows count of weak questions found
@@ -70,6 +73,13 @@ npm run dev
 - Weak question analysis updates
 - Future practice sessions adapt to improvement
 - User can see they're getting better!
+
+### 🆕 Test Integration
+- **Tests now contribute to smart practice!**
+- Completing a test provides many data points at once
+- Faster weak area detection
+- More comprehensive learning profile
+- Works automatically - no setup needed!
 
 ## 🎨 UI Changes
 

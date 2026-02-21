@@ -15,6 +15,10 @@ This feature tracks which questions users answer incorrectly and creates persona
 
 ### 2. Weak Question Detection
 - The system analyzes user performance to identify weak questions
+- **Data sources:**
+  - Regular game sessions
+  - Test attempts (toetsen)
+  - Practice sessions
 - Questions are considered "weak" if:
   - Seen at least 2 times
   - Answered incorrectly more often than correctly
@@ -71,8 +75,9 @@ Aggregates question statistics to identify weak areas per user.
 
 ### Database Queries
 - `lib/db/queries.ts` - Added:
-  - `saveQuestionStats()` - Save detailed question performance
-  - `getUserWeakQuestions()` - Get user's weak questions
+  - `saveQuestionStats()` - Save detailed question performance from games
+  - `saveTestQuestionStats()` - Save detailed question performance from tests
+  - `getUserWeakQuestions()` - Get user's weak questions (from all sources)
   - `getQuestionStats()` - Get stats for specific question
 
 ### Game Logic
@@ -94,14 +99,16 @@ Aggregates question statistics to identify weak areas per user.
 
 ### API Routes
 - `app/api/game/save/route.ts` - Enhanced to save question stats
+- `app/api/tests/attempts/route.ts` - Enhanced to save test question stats
 - `app/api/practice/weak-questions/route.ts` - New endpoint for fetching weak questions
 
 ## User Flow
 
-1. **Normal Game Play**
-   - User plays regular game
+1. **Normal Game Play & Tests**
+   - User plays regular game OR completes a test
    - Each question answer is tracked in detail
    - Data saved to `question_stats` table
+   - Both games and tests contribute to learning data
 
 2. **Building History**
    - After 2+ game sessions with varied questions
@@ -194,6 +201,7 @@ Possible improvements:
 
 ### Practice mode shows "Not enough data"
 - Play at least 2-3 more game sessions
+- Complete at least one test
 - Ensure you're not getting 100% correct every time
 - Check `question_stats` table has entries
 
@@ -204,5 +212,48 @@ Possible improvements:
 
 ### Questions aren't being tracked
 - Check API response in browser dev tools
-- Verify `saveQuestionStats` is being called
+- Verify `saveQuestionStats` or `saveTestQuestionStats` is being called
 - Check for database connection errors in server logs
+
+## Test Integration
+
+### How Tests Contribute to Smart Practice
+
+The adaptive learning system now integrates data from **both regular games AND tests** to provide comprehensive learning insights:
+
+#### Data Collection
+When a child completes a test:
+1. Test completion is saved to `test_attempts` table
+2. Each individual question is also saved to `question_stats` table
+3. Question stats include: num1, num2, operation, correct/incorrect, user's answer
+
+#### Unified Analysis
+- The `getUserWeakQuestions()` query analyzes ALL entries in `question_stats`
+- This includes data from:
+  - Regular game sessions
+  - Test attempts
+  - Practice sessions
+- The system treats all question attempts equally, regardless of source
+
+#### Benefits
+- **More comprehensive data**: Tests often cover specific topics thoroughly
+- **Faster weak area detection**: Tests provide many data points at once
+- **Better recommendations**: More data = more accurate smart practice
+- **Consistent learning**: Practice mode reinforces both game and test material
+
+#### Example Scenario
+1. Child completes a test with 20 questions
+2. Struggles with 3×8, 6×7, and 9×4 (gets them wrong)
+3. These questions are now tracked in `question_stats`
+4. Next time they use "Slimme Oefening" (Smart Practice):
+   - These weak questions will appear more frequently
+   - They're weighted the same as questions from regular games
+   - The practice adapts as they improve
+
+#### Implementation Details
+- Function: `saveTestQuestionStats()` in `lib/db/queries.ts`
+- Called by: `/api/tests/attempts` when test is completed
+- Format: Converts test question format to question_stats format
+- Session ID: Uses test attempt ID for traceability
+
+This integration ensures that all learning activities contribute to the child's adaptive learning profile!

@@ -532,3 +532,34 @@ export async function getUserTestAttempts(userId: string) {
     time_limit_seconds: number | null 
   })[];
 }
+
+// Save question stats from test attempts
+export async function saveTestQuestionStats(
+  userId: string,
+  testAttemptId: string,
+  questions: any[]
+) {
+  // Extract question data from test attempt format
+  const values = questions.map(item => ({
+    user_id: userId,
+    session_id: testAttemptId, // Use test attempt ID as session reference
+    num1: item.question.num1,
+    num2: item.question.num2,
+    operation: item.question.operation,
+    correct_answer: item.question.answer,
+    user_answer: item.userAnswer,
+    is_correct: item.isCorrect,
+    time_taken: null, // Tests don't track per-question time yet
+  }));
+
+  // Insert all in one transaction
+  for (const stat of values) {
+    await sql`
+      INSERT INTO question_stats 
+        (user_id, session_id, num1, num2, operation, correct_answer, user_answer, is_correct, time_taken)
+      VALUES 
+        (${stat.user_id}, ${stat.session_id}, ${stat.num1}, ${stat.num2}, ${stat.operation}, 
+         ${stat.correct_answer}, ${stat.user_answer}, ${stat.is_correct}, ${stat.time_taken})
+    `;
+  }
+}

@@ -5,7 +5,8 @@ import {
   completeTestAttempt, 
   getUserTestAttempt,
   getTestAttempts,
-  getTest 
+  getTest,
+  saveTestQuestionStats
 } from '@/lib/db/queries';
 
 // GET /api/tests/attempts - Get test attempts
@@ -116,6 +117,14 @@ export async function POST(req: Request) {
         timeTakenSeconds || null,
         questions
       );
+
+      // Save individual question stats for smart practice
+      try {
+        await saveTestQuestionStats(userId, attemptId, questions);
+      } catch (error) {
+        console.error('Error saving test question stats:', error);
+        // Don't fail the request if question stats fail to save
+      }
 
       return NextResponse.json({ attempt: completedAttempt });
 
