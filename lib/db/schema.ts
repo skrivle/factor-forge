@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, decimal, timestamp, boolean, jsonb, index, sql } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, decimal, timestamp, boolean, jsonb, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Groups table
