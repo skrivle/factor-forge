@@ -5,6 +5,7 @@ import { relations } from 'drizzle-orm';
 export const groups = pgTable('groups', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  supportedTables: integer('supported_tables').array().default([1,2,3,4,5,6,7,8,9,10]).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -13,7 +14,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').unique().notNull(),
   pin: text('pin').notNull(),
-  role: text('role').default('child').notNull().$type<'parent' | 'child'>(),
+  role: text('role').default('child').notNull().$type<'admin' | 'parent' | 'child'>(),
   groupId: uuid('group_id').references(() => groups.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -94,6 +95,21 @@ export const testAttempts = pgTable('test_attempts', {
   statusIdx: index('idx_test_attempts_status').on(table.status),
 }));
 
+// Invite codes table
+export const inviteCodes = pgTable('invite_codes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: text('code').unique().notNull(),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  usedBy: uuid('used_by').references(() => users.id, { onDelete: 'set null' }),
+  isUsed: boolean('is_used').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  usedAt: timestamp('used_at'),
+}, (table) => ({
+  codeIdx: index('idx_invite_codes_code').on(table.code),
+  usedByIdx: index('idx_invite_codes_used_by').on(table.usedBy),
+  isUsedIdx: index('idx_invite_codes_is_used').on(table.isUsed),
+}));
+
 // Relations
 export const groupsRelations = relations(groups, ({ many }) => ({
   users: many(users),
@@ -131,6 +147,17 @@ export const testAttemptsRelations = relations(testAttempts, ({ one }) => ({
   }),
   user: one(users, {
     fields: [testAttempts.userId],
+    references: [users.id],
+  }),
+}));
+
+export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
+  creator: one(users, {
+    fields: [inviteCodes.createdBy],
+    references: [users.id],
+  }),
+  usedByUser: one(users, {
+    fields: [inviteCodes.usedBy],
     references: [users.id],
   }),
 }));

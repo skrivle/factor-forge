@@ -118,6 +118,15 @@ export default function Home() {
                 >
                   Start Spel 🚀
                 </Button>
+                {(session.user as any).role === 'admin' && (
+                  <Button
+                    onClick={() => router.push('/admin')}
+                    variant="outline"
+                    className="w-full border-red-500/50 text-white hover:bg-red-500/20 font-bold text-lg h-14"
+                  >
+                    Admin Dashboard ⚙️
+                  </Button>
+                )}
                 <Button
                   onClick={() => router.push('/tests')}
                   variant="outline"

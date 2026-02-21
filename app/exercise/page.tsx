@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,13 +8,13 @@ import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import ExerciseArena from '@/components/exercise/ExerciseArena';
 
-const AVAILABLE_TABLES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-
 type OperationType = 'multiplication' | 'division' | 'both';
 
 export default function ExercisePage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [availableTables, setAvailableTables] = useState<number[]>([1,2,3,4,5,6,7,8,9,10]);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
   const [selectedOperation, setSelectedOperation] = useState<OperationType>('both');
   const [exerciseStarted, setExerciseStarted] = useState(false);
@@ -23,9 +23,39 @@ export default function ExercisePage() {
     incorrectAnswers: number;
   }>({ correctAnswers: 0, incorrectAnswers: 0 });
 
+  useEffect(() => {
+    if (session?.user) {
+      fetchGroupSettings();
+    }
+  }, [session]);
+
+  const fetchGroupSettings = async () => {
+    try {
+      const response = await fetch('/api/groups');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.group?.supported_tables) {
+          setAvailableTables(data.group.supported_tables);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching group settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!session?.user) {
     router.push('/auth/signin');
     return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 flex items-center justify-center">
+        <div className="text-white text-2xl">Laden...</div>
+      </div>
+    );
   }
 
   const handleExit = () => {
@@ -144,7 +174,7 @@ export default function ExercisePage() {
             <div className="space-y-3">
               <h3 className="text-white font-bold text-center">Selecteer een Tafel</h3>
               <div className="grid grid-cols-5 gap-2">
-                {AVAILABLE_TABLES.map((table) => (
+                {availableTables.map((table) => (
                   <Button
                     key={table}
                     onClick={() => setSelectedTable(table)}

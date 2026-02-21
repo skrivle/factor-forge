@@ -5,14 +5,31 @@ import type { Question } from '@/lib/game/engine';
 import bcrypt from 'bcryptjs';
 
 // User queries
-export async function createUser(name: string, pin: string, role: 'parent' | 'child' = 'child') {
+export async function createUser(
+  name: string, 
+  pin: string, 
+  role: 'admin' | 'parent' | 'child' = 'child',
+  groupId: string | null = null
+) {
   const hashedPin = await bcrypt.hash(pin, 10);
-  const result = await sql`
-    INSERT INTO users (name, pin, role)
-    VALUES (${name}, ${hashedPin}, ${role})
-    RETURNING *
-  `;
-  return result[0] as User;
+  
+  if (groupId) {
+    // User is being added to an existing group (e.g., child added by parent)
+    const result = await sql`
+      INSERT INTO users (name, pin, role, group_id)
+      VALUES (${name}, ${hashedPin}, ${role}, ${groupId})
+      RETURNING *
+    `;
+    return result[0] as User;
+  } else {
+    // Parent/admin signing up - no group yet, will create one in setup wizard
+    const result = await sql`
+      INSERT INTO users (name, pin, role)
+      VALUES (${name}, ${hashedPin}, ${role})
+      RETURNING *
+    `;
+    return result[0] as User;
+  }
 }
 
 export async function getUserByName(name: string) {
@@ -397,6 +414,41 @@ export async function getGroupMembers(groupId: string) {
     ORDER BY role DESC, name ASC
   `;
   return result as Omit<User, 'pin' | 'group_id'>[];
+}
+
+export async function removeUserFromGroup(userId: string) {
+  await sql`
+    UPDATE users
+    SET group_id = NULL
+    WHERE id = ${userId}
+  `;
+}
+
+export async function updateGroupSettings(groupId: string, supportedTables: number[]) {
+  await sql`
+    UPDATE groups
+    SET supported_tables = ${supportedTables}
+    WHERE id = ${groupId}
+  `;
+}
+
+export async function getUsersNotInGroup() {
+  const result = await sql`
+    SELECT id, name, role, created_at
+    FROM users
+    WHERE group_id IS NULL
+    ORDER BY role DESC, name ASC
+  `;
+  return result as Omit<User, 'pin' | 'group_id'>[];
+}
+
+export async function isUserAdminOfGroup(userId: string, groupId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT role
+    FROM users
+    WHERE id = ${userId} AND group_id = ${groupId} AND role = 'admin'
+  `;
+  return result.length > 0;
 }
 
 // Test queries

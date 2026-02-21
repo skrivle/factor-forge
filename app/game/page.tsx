@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import GameArena from '@/components/game/GameArena';
@@ -13,6 +13,8 @@ export default function GamePage() {
   const { data: session } = useSession();
   const router = useRouter();
   const [gameStarted, setGameStarted] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [supportedTables, setSupportedTables] = useState<number[]>([1,2,3,4,5,6,7,8,9,10]);
   const [gameStats, setGameStats] = useState<{
     score: number;
     accuracy: number;
@@ -25,13 +27,42 @@ export default function GamePage() {
   } | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (session?.user) {
+      fetchGroupSettings();
+    }
+  }, [session]);
+
+  const fetchGroupSettings = async () => {
+    try {
+      const response = await fetch('/api/groups');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.group?.supported_tables) {
+          setSupportedTables(data.group.supported_tables);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching group settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!session?.user) {
     router.push('/auth/signin');
     return null;
   }
 
   const userRole = (session.user as any).role || 'child';
-  const config = userRole === 'parent' ? DIFFICULTY_CONFIGS.parent : DIFFICULTY_CONFIGS.child;
+  // Admin and parent roles use parent config (hard difficulty)
+  const baseConfig = (userRole === 'parent' || userRole === 'admin') ? DIFFICULTY_CONFIGS.parent : DIFFICULTY_CONFIGS.child;
+  
+  // Apply the group's supported tables to the config
+  const config = {
+    ...baseConfig,
+    allowedTables: supportedTables,
+  };
 
   const handleGameEnd = async (stats: typeof gameStats) => {
     setGameStats(stats);
@@ -45,7 +76,7 @@ export default function GamePage() {
         body: JSON.stringify({
           score: stats?.score,
           accuracy: stats?.accuracy,
-          difficultyLevel: userRole === 'parent' ? 'hard' : 'easy',
+          difficultyLevel: (userRole === 'parent' || userRole === 'admin') ? 'hard' : 'easy',
           questions: stats?.questions,
           userAnswers: stats?.userAnswers,
           isCorrectAnswers: stats?.isCorrectAnswers,
@@ -75,6 +106,14 @@ export default function GamePage() {
 
   if (gameStarted) {
     return <GameArena config={config} onGameEnd={handleGameEnd} onExit={handleExit} />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 flex items-center justify-center">
+        <div className="text-white text-2xl">Laden...</div>
+      </div>
+    );
   }
 
   return (
@@ -156,7 +195,7 @@ export default function GamePage() {
                 <h3 className="text-xl font-bold text-white mb-4">Spelregels</h3>
                 <ul className="space-y-2 text-gray-300">
                   <li>✅ {config.questionCount} rekenopgaven</li>
-                  <li>🔢 Tafels: 1, 2, 3, 4, 5, 8 en 10</li>
+                  <li>🔢 Tafels: {supportedTables.join(', ')}</li>
                   <li>➗ Vermenigvuldiging en deling</li>
                   <li>⏱️ {config.timePerQuestion} seconden per vraag{config.decreaseTime && ' (afnemend!)'}</li>
                   <li>🎯 Typ je antwoord - je hoeft niet op Enter te drukken!</li>
@@ -166,7 +205,7 @@ export default function GamePage() {
               </div>
 
               <div className="text-center text-sm text-gray-400">
-                Moeilijkheidsgraad: <span className="text-purple-400 font-bold">{userRole === 'parent' ? 'MOEILIJK' : 'GEMAKKELIJK'}</span>
+                Moeilijkheidsgraad: <span className="text-purple-400 font-bold">{(userRole === 'parent' || userRole === 'admin') ? 'MOEILIJK' : 'GEMAKKELIJK'}</span>
               </div>
 
               <Button

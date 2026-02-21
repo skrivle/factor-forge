@@ -15,7 +15,7 @@ export interface User {
   id: string;
   name: string;
   pin: string;
-  role: 'parent' | 'child';
+  role: 'admin' | 'parent' | 'child';
   group_id: string | null;
   created_at: Date;
 }
@@ -64,6 +64,7 @@ export interface WeakQuestion {
 export interface Group {
   id: string;
   name: string;
+  supported_tables: number[];
   created_at: Date;
 }
 
@@ -92,4 +93,14 @@ export interface TestAttempt {
   status: 'completed' | 'in_progress';
   started_at: Date;
   completed_at: Date | null;
+}
+
+export interface InviteCode {
+  id: string;
+  code: string;
+  created_by: string | null;
+  used_by: string | null;
+  is_used: boolean;
+  created_at: Date;
+  used_at: Date | null;
 }

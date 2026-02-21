@@ -100,9 +100,17 @@ export default function SignInPage() {
             </Button>
           </form>
           <div className="mt-6 text-center">
-            <p className="text-gray-400 text-sm">
-              Nog geen account? Vraag het aan een ouder.
+            <p className="text-gray-400 text-sm mb-2">
+              Nog geen account?
             </p>
+            <Button
+              type="button"
+              variant="link"
+              onClick={() => router.push('/auth/signup')}
+              className="text-purple-400 hover:text-purple-300"
+            >
+              Registreer met uitnodigingscode
+            </Button>
           </div>
         </CardContent>
       </Card>

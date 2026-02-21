@@ -13,27 +13,40 @@ export default function PracticePage() {
   const router = useRouter();
   const [practiceStarted, setPracticeStarted] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [supportedTables, setSupportedTables] = useState<number[]>([1,2,3,4,5,6,7,8,9,10]);
   const [weakQuestions, setWeakQuestions] = useState<WeakQuestionData[]>([]);
   const [hasEnoughData, setHasEnoughData] = useState(false);
   const [practiceConfig, setPracticeConfig] = useState<any>(null);
 
   useEffect(() => {
     if (session?.user) {
-      fetchWeakQuestions();
+      fetchData();
     }
   }, [session]);
 
-  const fetchWeakQuestions = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/practice/weak-questions');
-      if (response.ok) {
-        const data = await response.json();
-        setWeakQuestions(data.weakQuestions);
-        setHasEnoughData(data.hasEnoughData);
+      // Fetch both group settings and weak questions
+      const [groupResponse, weakQuestionsResponse] = await Promise.all([
+        fetch('/api/groups'),
+        fetch('/api/practice/weak-questions')
+      ]);
+      
+      if (groupResponse.ok) {
+        const groupData = await groupResponse.json();
+        if (groupData.group?.supported_tables) {
+          setSupportedTables(groupData.group.supported_tables);
+        }
+      }
+      
+      if (weakQuestionsResponse.ok) {
+        const weakData = await weakQuestionsResponse.json();
+        setWeakQuestions(weakData.weakQuestions);
+        setHasEnoughData(weakData.hasEnoughData);
       }
     } catch (error) {
-      console.error('Error fetching weak questions:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -45,18 +58,24 @@ export default function PracticePage() {
   }
 
   const userRole = (session.user as any).role || 'child';
-  const baseConfig = userRole === 'parent' ? DIFFICULTY_CONFIGS.parent : DIFFICULTY_CONFIGS.child;
+  // Admin and parent roles use parent config (hard difficulty)
+  const baseConfig = (userRole === 'parent' || userRole === 'admin') ? DIFFICULTY_CONFIGS.parent : DIFFICULTY_CONFIGS.child;
 
   const handleStartPractice = () => {
-    setPracticeConfig(baseConfig);
+    // Apply the group's supported tables to the config
+    const config = {
+      ...baseConfig,
+      allowedTables: supportedTables,
+    };
+    setPracticeConfig(config);
     setPracticeStarted(true);
   };
 
   const handleExit = () => {
     setPracticeStarted(false);
     setPracticeConfig(null);
-    // Refresh weak questions after practice
-    fetchWeakQuestions();
+    // Refresh data after practice
+    fetchData();
   };
 
   if (practiceStarted && practiceConfig) {
@@ -153,7 +172,7 @@ export default function PracticePage() {
               </div>
 
               <div className="text-center text-sm text-gray-400">
-                Moeilijkheidsgraad: <span className="text-purple-400 font-bold">{userRole === 'parent' ? 'MOEILIJK' : 'GEMAKKELIJK'}</span>
+                Moeilijkheidsgraad: <span className="text-purple-400 font-bold">{(userRole === 'parent' || userRole === 'admin') ? 'MOEILIJK' : 'GEMAKKELIJK'}</span>
               </div>
 
               <Button
