@@ -6,7 +6,7 @@ import { motion } from 'framer-motion';
 interface GameSession {
   id: string;
   score: number;
-  accuracy: number;
+  accuracy: string | number; // decimal type from DB returns as string
   difficulty_level: 'easy' | 'medium' | 'hard';
   completed_at: Date | string;
 }
