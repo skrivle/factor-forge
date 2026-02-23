@@ -472,6 +472,18 @@ export async function canAccessGroup(
   return result.length > 0;
 }
 
+/** True if viewer (parent or admin) can see the target user's stats: same group and viewer role is parent or admin. */
+export async function canViewChildStats(viewerId: string, targetUserId: string): Promise<boolean> {
+  const result = await sql`
+    SELECT v.role AS viewer_role
+    FROM users v
+    INNER JOIN users t ON v.group_id = t.group_id AND t.group_id IS NOT NULL
+    WHERE v.id = ${viewerId} AND t.id = ${targetUserId}
+      AND v.role IN ('parent', 'admin')
+  `;
+  return result.length > 0;
+}
+
 /** Returns only those userIds that belong to the same group as the given user. */
 export async function filterUserIdsToSameGroup(
   currentUserId: string,
