@@ -26,6 +26,7 @@ export default function GamePage() {
     timeTaken?: (number | null)[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [learningNeeded, setLearningNeeded] = useState(false);
 
   useEffect(() => {
     if (session?.user) {
@@ -86,6 +87,11 @@ export default function GamePage() {
 
       if (!response.ok) {
         console.error('Failed to save game session');
+      }
+      const learningRes = await fetch('/api/learning/status');
+      if (learningRes.ok) {
+        const learning = await learningRes.json();
+        setLearningNeeded(learning.learningNeeded === true);
       }
     } catch (error) {
       console.error('Error saving game:', error);
@@ -153,6 +159,20 @@ export default function GamePage() {
 
                 {saving && (
                   <div className="text-center text-gray-400">Je voortgang wordt opgeslagen...</div>
+                )}
+
+                {!saving && learningNeeded && (
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+                    <p className="text-green-200 text-sm mb-3">
+                      Wil je deze sommen nog even oefenen? Probeer Slimme Oefening 🎯
+                    </p>
+                    <Button
+                      onClick={() => router.push('/practice')}
+                      className="w-full bg-green-600 hover:bg-green-500 text-white font-bold text-lg h-12"
+                    >
+                      Slimme Oefening 🎯
+                    </Button>
+                  </div>
                 )}
 
                 <div className="flex gap-4">

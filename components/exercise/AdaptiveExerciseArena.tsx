@@ -6,22 +6,23 @@ import Numpad from '../game/Numpad';
 import { playCorrectSound, playIncorrectSound, playComboSound, setSoundEnabled, isSoundEnabled } from '@/lib/game/sounds';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { type Question, type WeakQuestionData, generateAdaptiveQuestions, type GameConfig } from '@/lib/game/engine';
+import { type Question, type DueFactData, generateQuestionsFromDueFacts, type GameConfig } from '@/lib/game/engine';
 
 interface AdaptiveExerciseArenaProps {
   config: GameConfig;
-  weakQuestions: WeakQuestionData[];
+  dueQuestions: DueFactData[];
   onExit: () => void;
 }
 
-export default function AdaptiveExerciseArena({ config, weakQuestions, onExit }: AdaptiveExerciseArenaProps) {
-  const [questions] = useState<Question[]>(() => generateAdaptiveQuestions(config, weakQuestions));
+export default function AdaptiveExerciseArena({ config, dueQuestions, onExit }: AdaptiveExerciseArenaProps) {
+  const [questions] = useState<Question[]>(() => generateQuestionsFromDueFacts(config, dueQuestions));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
   const [showFeedback, setShowFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled());
   const [combo, setCombo] = useState(0);
+  const [sessionComplete, setSessionComplete] = useState(false);
   const [stats, setStats] = useState({
     correctAnswers: 0,
     incorrectAnswers: 0,
@@ -42,8 +43,12 @@ export default function AdaptiveExerciseArena({ config, weakQuestions, onExit }:
   };
 
   const generateNewQuestion = () => {
-    // Cycle through all questions, then restart
-    const nextIndex = (currentQuestionIndex + 1) % questions.length;
+    const nextIndex = currentQuestionIndex + 1;
+    if (nextIndex >= questions.length) {
+      setSessionComplete(true);
+      saveQuestionStats();
+      return;
+    }
     setCurrentQuestionIndex(nextIndex);
     setUserInput('');
     setQuestionStartTime(Date.now());
@@ -224,6 +229,42 @@ export default function AdaptiveExerciseArena({ config, weakQuestions, onExit }:
   const accuracy = stats.correctAnswers + stats.incorrectAnswers > 0
     ? Math.round((stats.correctAnswers / (stats.correctAnswers + stats.incorrectAnswers)) * 100)
     : 0;
+
+  if (sessionComplete) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-black flex items-center justify-center p-4">
+        <Card className="border-2 border-green-500/30 bg-black/80 backdrop-blur-lg max-w-md w-full">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="text-5xl">🎉</div>
+            <h2 className="text-2xl font-bold text-white">Sessie afgerond!</h2>
+            <p className="text-gray-300">
+              Je hebt alle {questions.length} sommen voor vandaag geoefend. Tot de volgende keer!
+            </p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-green-400">{stats.correctAnswers}</div>
+                <div className="text-xs text-gray-400">Correct</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-400">{stats.incorrectAnswers}</div>
+                <div className="text-xs text-gray-400">Fout</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-blue-400">{accuracy}%</div>
+                <div className="text-xs text-gray-400">Nauwkeurigheid</div>
+              </div>
+            </div>
+            <Button
+              onClick={onExit}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-lg h-12"
+            >
+              Terug naar oefenoverzicht
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-purple-900 via-blue-900 to-black">

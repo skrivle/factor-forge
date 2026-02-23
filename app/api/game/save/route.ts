@@ -7,6 +7,7 @@ import {
   incrementCorrectAnswers,
   calculateStreak,
   saveQuestionStats,
+  updateSrsOnAnswer,
 } from '@/lib/db/queries';
 
 export async function POST(req: NextRequest) {
@@ -56,6 +57,16 @@ export async function POST(req: NextRequest) {
         isCorrectAnswers,
         timeTaken
       );
+      // Update SRS schedule for each question
+      for (let i = 0; i < questions.length; i++) {
+        await updateSrsOnAnswer(
+          userId,
+          questions[i].num1,
+          questions[i].num2,
+          questions[i].operation,
+          isCorrectAnswers[i]
+        );
+      }
     }
 
     // Calculate current streak from session data

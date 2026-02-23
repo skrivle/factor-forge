@@ -7,6 +7,7 @@ import {
   getTestAttempts,
   getTest,
   saveTestQuestionStats,
+  updateSrsOnAnswer,
   canAccessGroup
 } from '@/lib/db/queries';
 
@@ -135,6 +136,13 @@ export async function POST(req: Request) {
       // Save individual question stats for smart practice
       try {
         await saveTestQuestionStats(userId, attemptId, questions);
+        // Update SRS schedule from test results
+        for (const item of questions) {
+          const q = item.question;
+          if (q && typeof item.isCorrect === 'boolean') {
+            await updateSrsOnAnswer(userId, q.num1, q.num2, q.operation, item.isCorrect);
+          }
+        }
       } catch (error) {
         console.error('Error saving test question stats:', error);
         // Don't fail the request if question stats fail to save

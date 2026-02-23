@@ -65,6 +65,9 @@ export default function ExerciseArena({ selectedTable, operationType, onExit, on
   const [isProcessingAnswer, setIsProcessingAnswer] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled());
   const [combo, setCombo] = useState(0);
+  const [questionsHistory, setQuestionsHistory] = useState<Question[]>([]);
+  const [userAnswersHistory, setUserAnswersHistory] = useState<(number | null)[]>([]);
+  const [isCorrectHistory, setIsCorrectHistory] = useState<boolean[]>([]);
 
   const toggleSound = () => {
     const newState = !soundEnabled;
@@ -84,6 +87,9 @@ export default function ExerciseArena({ selectedTable, operationType, onExit, on
 
       const isCorrect = answer === currentQuestion.answer;
       onAnswerUpdate(isCorrect);
+      setQuestionsHistory((prev) => [...prev, currentQuestion]);
+      setUserAnswersHistory((prev) => [...prev, answer]);
+      setIsCorrectHistory((prev) => [...prev, isCorrect]);
 
       if (isCorrect) {
         playCorrectSound();
@@ -171,6 +177,9 @@ export default function ExerciseArena({ selectedTable, operationType, onExit, on
     setIsProcessingAnswer(true);
     setCombo(0);
     onAnswerUpdate(false);
+    setQuestionsHistory((prev) => [...prev, currentQuestion]);
+    setUserAnswersHistory((prev) => [...prev, null]);
+    setIsCorrectHistory((prev) => [...prev, false]);
 
     setTimeout(() => {
       setShowFeedback(null);
@@ -178,6 +187,26 @@ export default function ExerciseArena({ selectedTable, operationType, onExit, on
       generateNewQuestion();
     }, 1500);
   };
+
+  const handleExit = useCallback(async () => {
+    if (questionsHistory.length > 0) {
+      try {
+        await fetch('/api/practice/save-stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions: questionsHistory,
+            userAnswers: userAnswersHistory,
+            isCorrectAnswers: isCorrectHistory,
+            timeTaken: questionsHistory.map(() => null),
+          }),
+        });
+      } catch (e) {
+        console.error('Error saving exercise stats:', e);
+      }
+    }
+    onExit();
+  }, [questionsHistory, userAnswersHistory, isCorrectHistory, onExit]);
 
   const accuracy = stats.correctAnswers + stats.incorrectAnswers > 0
     ? Math.round((stats.correctAnswers / (stats.correctAnswers + stats.incorrectAnswers)) * 100)
@@ -234,7 +263,7 @@ export default function ExerciseArena({ selectedTable, operationType, onExit, on
                 {soundEnabled ? '🔊' : '🔇'}
               </Button>
               <Button
-                onClick={onExit}
+                onClick={handleExit}
                 variant="ghost"
                 size="sm"
                 className="text-gray-400 hover:text-white hover:bg-red-500/20"

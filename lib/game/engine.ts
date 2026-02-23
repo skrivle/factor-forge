@@ -389,3 +389,29 @@ export function generateAdaptiveQuestions(
   // If no weak questions data, fall back to normal generation
   return generateQuestions(config);
 }
+
+// SRS-only: one question per due fact (session = all due, each once). Cap per session for very large queues.
+const SRS_SESSION_MAX = 50;
+
+export interface DueFactData {
+  num1: number;
+  num2: number;
+  operation: 'multiplication' | 'division';
+}
+
+export function generateQuestionsFromDueFacts(
+  config: GameConfig,
+  dueFacts: DueFactData[]
+): Question[] {
+  if (dueFacts.length === 0) {
+    return generateQuestions(config);
+  }
+  const questions: Question[] = dueFacts.map((f) => ({
+    num1: f.num1,
+    num2: f.num2,
+    operation: f.operation,
+    answer: f.operation === 'division' ? f.num1 / f.num2 : f.num1 * f.num2,
+  }));
+  const shuffled = shuffleArray(questions);
+  return shuffled.slice(0, SRS_SESSION_MAX);
+}

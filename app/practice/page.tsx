@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import AdaptiveExerciseArena from '@/components/exercise/AdaptiveExerciseArena';
-import { DIFFICULTY_CONFIGS, type WeakQuestionData } from '@/lib/game/engine';
+import { DIFFICULTY_CONFIGS, type DueFactData } from '@/lib/game/engine';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -14,8 +14,8 @@ export default function PracticePage() {
   const [practiceStarted, setPracticeStarted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [supportedTables, setSupportedTables] = useState<number[]>([1,2,3,4,5,6,7,8,9,10]);
-  const [weakQuestions, setWeakQuestions] = useState<WeakQuestionData[]>([]);
-  const [hasEnoughData, setHasEnoughData] = useState(false);
+  const [dueQuestions, setDueQuestions] = useState<DueFactData[]>([]);
+  const [dueCount, setDueCount] = useState(0);
   const [practiceConfig, setPracticeConfig] = useState<any>(null);
 
   useEffect(() => {
@@ -27,23 +27,22 @@ export default function PracticePage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch both group settings and weak questions
-      const [groupResponse, weakQuestionsResponse] = await Promise.all([
+      const [groupResponse, practiceResponse] = await Promise.all([
         fetch('/api/groups'),
-        fetch('/api/practice/weak-questions')
+        fetch('/api/practice/weak-questions'),
       ]);
-      
+
       if (groupResponse.ok) {
         const groupData = await groupResponse.json();
         if (groupData.group?.supported_tables) {
           setSupportedTables(groupData.group.supported_tables);
         }
       }
-      
-      if (weakQuestionsResponse.ok) {
-        const weakData = await weakQuestionsResponse.json();
-        setWeakQuestions(weakData.weakQuestions);
-        setHasEnoughData(weakData.hasEnoughData);
+
+      if (practiceResponse.ok) {
+        const data = await practiceResponse.json();
+        setDueQuestions(data.dueQuestions ?? []);
+        setDueCount(data.dueCount ?? 0);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -79,7 +78,7 @@ export default function PracticePage() {
   };
 
   if (practiceStarted && practiceConfig) {
-    return <AdaptiveExerciseArena config={practiceConfig} weakQuestions={weakQuestions} onExit={handleExit} />;
+    return <AdaptiveExerciseArena config={practiceConfig} dueQuestions={dueQuestions} onExit={handleExit} />;
   }
 
   if (loading) {
@@ -100,7 +99,7 @@ export default function PracticePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 flex items-center justify-center">
       <div className="w-full max-w-2xl">
-        {!hasEnoughData ? (
+        {dueCount === 0 ? (
           <Card className="border-2 border-purple-500/30 bg-black/80 backdrop-blur-lg">
             <CardHeader className="text-center">
               <CardTitle className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-600 bg-clip-text text-transparent mb-4">
@@ -112,13 +111,13 @@ export default function PracticePage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-6 text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <h3 className="text-xl font-bold text-white mb-2">Niet Genoeg Data</h3>
+                <div className="text-4xl mb-4">📅</div>
+                <h3 className="text-xl font-bold text-white mb-2">Geen sommen vandaag</h3>
                 <p className="text-gray-300 mb-4">
-                  Je hebt nog niet genoeg gespeeld om je zwakke punten te identificeren.
+                  Er staan nog geen oefensommen klaar. Speel een spelletje om je oefenlijst op te bouwen!
                 </p>
                 <p className="text-gray-400 text-sm">
-                  Speel eerst een paar gewone spelletjes, dan kunnen we je helpen met gerichte oefensessies!
+                  Daarna kun je hier gerichte oefensessies doen op het juiste moment.
                 </p>
               </div>
 
@@ -152,11 +151,10 @@ export default function PracticePage() {
               <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-6">
                 <h3 className="text-xl font-bold text-white mb-4">Hoe werkt het?</h3>
                 <ul className="space-y-2 text-gray-300">
-                  <li>🎯 Speciaal aangepaste vragen op basis van je zwakke punten</li>
-                  <li>📊 Focus op sommen waar je moeite mee hebt</li>
-                  <li>🧠 Slimme algoritme kiest de beste oefenvragen</li>
-                  <li>⏱️ Geen tijdslimiet - neem de tijd die je nodig hebt!</li>
-                  <li>🔄 De oefenvragen passen zich aan terwijl je verbetert</li>
+                  <li>📅 Oefen op het juiste moment – sommen die vandaag aan bod moeten komen</li>
+                  <li>🧠 Spaced repetition voor beter onthouden op lange termijn</li>
+                  <li>⏱️ Geen tijdslimiet – neem de tijd die je nodig hebt!</li>
+                  <li>🔄 Na een spelletje komen nieuwe sommen in je oefenlijst</li>
                   <li>📈 Telt niet mee voor streak, maar helpt je wel verbeteren!</li>
                 </ul>
               </div>
@@ -164,10 +162,14 @@ export default function PracticePage() {
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm text-gray-400">Zwakke Punten Gevonden</div>
-                    <div className="text-2xl font-bold text-blue-400">{weakQuestions.length}</div>
+                    <div className="text-sm text-gray-400">Sommen te oefenen vandaag</div>
+                    <div className="text-2xl font-bold text-blue-400">{dueCount}</div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      In één sessie oefen je al je sommen voor vandaag
+                      {dueCount > 50 && ' (max. 50 per sessie)'}.
+                    </div>
                   </div>
-                  <div className="text-4xl">📈</div>
+                  <div className="text-4xl">📅</div>
                 </div>
               </div>
 

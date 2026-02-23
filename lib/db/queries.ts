@@ -381,6 +381,120 @@ export async function getQuestionStats(
   };
 }
 
+// SRS: kid-friendlier ladder – shorter steps early (1→2→3→4→7→14→30). Aligns with evidence:
+// - First interval ~24h, then 3d, then 1w (we use 1→2→3→4→7→14→30).
+// - Wrong → reset/shrink: we set interval 1, next_review tomorrow.
+// - Learning buffer: don't advance from "1 day" until they've got it right twice (see below).
+const SRS_INTERVALS = [1, 2, 3, 4, 7, 14, 30];
+const SRS_LEARNING_REPS = 2; // require this many correct at 1-day step before moving to 2 days
+
+export interface DueFact {
+  num1: number;
+  num2: number;
+  operation: 'multiplication' | 'division';
+}
+
+export async function getDueFacts(userId: string): Promise<DueFact[]> {
+  const result = await sql`
+    SELECT num1, num2, operation
+    FROM spaced_repetition_schedule
+    WHERE user_id = ${userId}
+      AND next_review_date <= CURRENT_DATE
+    ORDER BY next_review_date ASC
+  `;
+  return result.map((row: any) => ({
+    num1: parseInt(row.num1),
+    num2: parseInt(row.num2),
+    operation: row.operation,
+  }));
+}
+
+export async function getDueCount(userId: string): Promise<number> {
+  const result = await sql`
+    SELECT COUNT(*) as cnt
+    FROM spaced_repetition_schedule
+    WHERE user_id = ${userId}
+      AND next_review_date <= CURRENT_DATE
+  `;
+  return result.length > 0 ? parseInt((result[0] as any).cnt) : 0;
+}
+
+export async function updateSrsOnAnswer(
+  userId: string,
+  num1: number,
+  num2: number,
+  operation: 'multiplication' | 'division',
+  isCorrect: boolean
+) {
+  const today = getTodayString();
+  const existing = await sql`
+    SELECT id, interval_days, repetitions
+    FROM spaced_repetition_schedule
+    WHERE user_id = ${userId}
+      AND num1 = ${num1}
+      AND num2 = ${num2}
+      AND operation = ${operation}
+  `;
+
+  if (isCorrect) {
+    const row = existing[0] as any;
+    const currentInterval = row ? parseInt(row.interval_days) : 0;
+    const currentReps = row ? parseInt(row.repetitions) : 0;
+    const newReps = currentReps + 1;
+    const currentIndex = SRS_INTERVALS.indexOf(currentInterval);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    // Learning buffer: at first step (1 day), require 2 correct before advancing to 2 days
+    const stayInLearning = safeIndex === 0 && newReps < SRS_LEARNING_REPS;
+    const nextIndex = stayInLearning ? 0 : Math.min(safeIndex + 1, SRS_INTERVALS.length - 1);
+    const nextInterval = SRS_INTERVALS[nextIndex];
+    const nextReviewDate = new Date(today + 'T12:00:00');
+    nextReviewDate.setDate(nextReviewDate.getDate() + nextInterval);
+    const nextReviewStr = toLocalDateString(nextReviewDate);
+
+    if (existing.length > 0) {
+      await sql`
+        UPDATE spaced_repetition_schedule
+        SET interval_days = ${nextInterval},
+            next_review_date = ${nextReviewStr}::date,
+            repetitions = ${newReps},
+            updated_at = NOW()
+        WHERE user_id = ${userId}
+          AND num1 = ${num1}
+          AND num2 = ${num2}
+          AND operation = ${operation}
+      `;
+    } else {
+      await sql`
+        INSERT INTO spaced_repetition_schedule
+          (user_id, num1, num2, operation, interval_days, next_review_date, repetitions)
+        VALUES (${userId}, ${num1}, ${num2}, ${operation}, ${nextInterval}, ${nextReviewStr}::date, ${newReps})
+        ON CONFLICT (user_id, num1, num2, operation)
+        DO UPDATE SET
+          interval_days = ${nextInterval},
+          next_review_date = ${nextReviewStr}::date,
+          repetitions = ${newReps},
+          updated_at = NOW()
+      `;
+    }
+  } else {
+    const tomorrowDate = new Date(today + 'T12:00:00');
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrowStr = toLocalDateString(tomorrowDate);
+
+    await sql`
+      INSERT INTO spaced_repetition_schedule
+        (user_id, num1, num2, operation, interval_days, next_review_date, repetitions)
+      VALUES (${userId}, ${num1}, ${num2}, ${operation}, 1, ${tomorrowStr}::date, 0)
+      ON CONFLICT (user_id, num1, num2, operation)
+      DO UPDATE SET
+        interval_days = 1,
+        next_review_date = ${tomorrowStr}::date,
+        repetitions = 0,
+        updated_at = NOW()
+    `;
+  }
+}
+
 // Group queries
 export async function createGroup(name: string) {
   const result = await sql`

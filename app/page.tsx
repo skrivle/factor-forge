@@ -14,33 +14,31 @@ interface UserStats {
   total_correct_answers: number;
 }
 
+interface LearningStatus {
+  learningNeeded: boolean;
+  dueCount: number;
+}
+
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [stats, setStats] = useState<UserStats | null>(null);
+  const [learningStatus, setLearningStatus] = useState<LearningStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/auth/signin');
     } else if (status === 'authenticated') {
-      fetchUserStats();
+      Promise.all([fetch('/api/user/stats'), fetch('/api/learning/status')])
+        .then(async ([statsRes, learningRes]) => {
+          if (statsRes.ok) setStats(await statsRes.json());
+          if (learningRes.ok) setLearningStatus(await learningRes.json());
+        })
+        .catch((e) => console.error('Error fetching data:', e))
+        .finally(() => setLoading(false));
     }
   }, [status, router]);
-
-  const fetchUserStats = async () => {
-    try {
-      const response = await fetch('/api/user/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (status === 'loading' || loading) {
     return (
@@ -108,6 +106,14 @@ export default function Home() {
                       {stats.total_correct_answers || 0}
                     </div>
                   </motion.div>
+                </div>
+              )}
+
+              {learningStatus?.learningNeeded && learningStatus.dueCount > 0 && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-center">
+                  <p className="text-green-200 text-sm">
+                    Je hebt {learningStatus.dueCount} sommen om te oefenen vandaag – oefen eerst even, dan wordt je volgende spel nóg leuker! 🎯
+                  </p>
                 </div>
               )}
 

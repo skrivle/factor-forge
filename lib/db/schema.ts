@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, decimal, timestamp, boolean, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, decimal, timestamp, boolean, jsonb, index, date, real, uniqueIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Groups table
@@ -57,6 +57,24 @@ export const questionStats = pgTable('question_stats', {
 }, (table) => ({
   userIdIdx: index('idx_question_stats_user_id').on(table.userId),
   sessionIdIdx: index('idx_question_stats_session_id').on(table.sessionId),
+}));
+
+// Spaced repetition schedule (one row per user per fact)
+export const spacedRepetitionSchedule = pgTable('spaced_repetition_schedule', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  num1: integer('num1').notNull(),
+  num2: integer('num2').notNull(),
+  operation: text('operation').notNull().$type<'multiplication' | 'division'>(),
+  intervalDays: integer('interval_days').default(1).notNull(),
+  easinessFactor: real('easiness_factor').default(2.5).notNull(),
+  nextReviewDate: date('next_review_date').notNull(),
+  repetitions: integer('repetitions').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userNextIdx: index('idx_srs_user_next').on(table.userId, table.nextReviewDate),
+  userFactUnique: uniqueIndex('srs_user_fact_unique').on(table.userId, table.num1, table.num2, table.operation),
 }));
 
 // Tests table
@@ -124,6 +142,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   stats: one(userStats),
   questionStats: many(questionStats),
+  spacedRepetitionSchedule: many(spacedRepetitionSchedule),
   createdTests: many(tests),
   testAttempts: many(testAttempts),
 }));
@@ -158,6 +177,13 @@ export const inviteCodesRelations = relations(inviteCodes, ({ one }) => ({
   }),
   usedByUser: one(users, {
     fields: [inviteCodes.usedBy],
+    references: [users.id],
+  }),
+}));
+
+export const spacedRepetitionScheduleRelations = relations(spacedRepetitionSchedule, ({ one }) => ({
+  user: one(users, {
+    fields: [spacedRepetitionSchedule.userId],
     references: [users.id],
   }),
 }));
