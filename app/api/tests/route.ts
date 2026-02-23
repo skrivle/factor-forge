@@ -54,8 +54,8 @@ export async function POST(req: Request) {
 
     const userRole = (session.user as any).role;
     
-    if (userRole !== 'parent') {
-      return NextResponse.json({ error: 'Only parents can create tests' }, { status: 403 });
+    if (userRole !== 'parent' && userRole !== 'admin') {
+      return NextResponse.json({ error: 'Only parents and admins can create tests' }, { status: 403 });
     }
 
     const userId = (session.user as any).id;
@@ -128,8 +128,8 @@ export async function DELETE(req: Request) {
 
     const userRole = (session.user as any).role;
     
-    if (userRole !== 'parent') {
-      return NextResponse.json({ error: 'Only parents can delete tests' }, { status: 403 });
+    if (userRole !== 'parent' && userRole !== 'admin') {
+      return NextResponse.json({ error: 'Only parents and admins can delete tests' }, { status: 403 });
     }
 
     const userId = (session.user as any).id;

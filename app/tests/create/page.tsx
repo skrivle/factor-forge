@@ -148,12 +148,13 @@ export default function CreateTestPage() {
     }
   };
 
-  if (!session?.user || (session.user as any).role !== 'parent') {
+  const role = (session?.user as any)?.role;
+  if (!session?.user || (role !== 'parent' && role !== 'admin')) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-black p-4 flex items-center justify-center">
         <Card className="border-2 border-purple-500/30 bg-black/80 backdrop-blur-lg">
           <CardContent className="p-12 text-center text-white">
-            <p>Alleen ouders kunnen tests aanmaken.</p>
+            <p>Alleen ouders en beheerders kunnen tests aanmaken.</p>
           </CardContent>
         </Card>
       </div>

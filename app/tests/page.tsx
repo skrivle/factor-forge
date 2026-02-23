@@ -92,6 +92,7 @@ export default function TestsPage() {
   }
 
   const userRole = (session.user as any).role;
+  const canManageTests = userRole === 'parent' || userRole === 'admin';
 
   if (loading) {
     return (
@@ -119,7 +120,7 @@ export default function TestsPage() {
             Terug
           </Button>
           
-          {userRole === 'parent' && (
+          {canManageTests && (
             <Button
               onClick={() => router.push('/tests/create')}
               className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500"
@@ -135,7 +136,7 @@ export default function TestsPage() {
               Tests 📝
             </CardTitle>
             <p className="text-gray-300 mt-2">
-              {userRole === 'parent' 
+              {canManageTests 
                 ? 'Maak tests voor je kinderen en bekijk hun resultaten.'
                 : 'Maak de tests die voor jou zijn aangemaakt!'}
             </p>
@@ -146,11 +147,11 @@ export default function TestsPage() {
           <Card className="border-2 border-purple-500/30 bg-black/80 backdrop-blur-lg">
             <CardContent className="p-12 text-center">
               <p className="text-gray-300 text-lg mb-4">
-                {userRole === 'parent' 
+                {canManageTests 
                   ? 'Je hebt nog geen tests aangemaakt.'
                   : 'Er zijn nog geen tests beschikbaar.'}
               </p>
-              {userRole === 'parent' && (
+              {canManageTests && (
                 <Button
                   onClick={() => router.push('/tests/create')}
                   className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500"
@@ -234,7 +235,7 @@ export default function TestsPage() {
                           </Button>
                         )}
                         
-                        {userRole === 'parent' && (
+                        {canManageTests && (
                           <Button
                             onClick={() => router.push(`/tests/${test.id}/results`)}
                             className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500"
